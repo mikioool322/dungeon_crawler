@@ -213,6 +213,8 @@ static func ok(message: String = "") -> InteractionResult
 static func rejected(code: StringName, message: String = "") -> InteractionResult
 static func unavailable() -> InteractionResult
 func succeeded() -> bool
+# convention: succeeded() <=> code == OK, so a success carries its domain word ("granted",
+# "already_collected", "travel_started") in `message`; refusals carry their code verbatim
 
 class_name Interactable extends Area3D                # systems/interaction/interactable.gd
 signal interaction_completed(interactor: Node3D, result: InteractionResult)
@@ -224,6 +226,9 @@ func interact(interactor: Node3D) -> InteractionResult   # final: guards + one-s
 func _perform_interact(_interactor: Node3D) -> InteractionResult   # virtual
 func is_used() -> bool
 func mark_used() -> void
+func bind_loot(_reward: RewardDefinition, _grant_key: StringName, _loot: LootService) -> void
+# bind_loot is inert on the base and overridden by the loot-granting subclasses, so the world host
+# injects loot without the general interaction system knowing about it (ADR-008)
 # scene: collision_layer = INTERACTABLE, monitoring = false, one CollisionShape3D child
 
 class_name InteractionController extends Node3D       # systems/interaction/interaction_controller.gd
@@ -250,15 +255,21 @@ func _perform_interact(_interactor: Node3D) -> InteractionResult   # returns the
 class_name PickupInteractable extends Interactable    # systems/interaction/pickup_interactable.gd
 @export var reward: RewardDefinition = null
 @export var loot_source_id: StringName = &""
-var grant_key: StringName = &""
-func configure(reward: RewardDefinition, grant_key: StringName, loot: LootService) -> void
+func bind_loot(reward: RewardDefinition, grant_key: StringName, loot: LootService) -> void
+func is_bound() -> bool
 func _perform_interact(_interactor: Node3D) -> InteractionResult   # consumed on granted/duplicate
 
 class_name ChestInteractable extends Interactable     # systems/interaction/chest_interactable.gd
 @export var reward: RewardDefinition = null
 @export var loot_source_id: StringName = &""
-func configure(reward: RewardDefinition, grant_key: StringName, loot: LootService) -> void
+func bind_loot(reward: RewardDefinition, grant_key: StringName, loot: LootService) -> void
+func is_bound() -> bool
 func _perform_interact(_interactor: Node3D) -> InteractionResult   # stays in world, opens once
+
+class_name SaveShrineInteractable extends Interactable  # world/hub/save_shrine_interactable.gd
+func set_save_provider(save_callable: Callable) -> void
+# calls the injected save callable and maps the SaveResult to an interaction result; the only
+# hub furniture that reaches the save system, and it does so through a Callable, not an import
 ```
 
 ### World orchestration and HUD
