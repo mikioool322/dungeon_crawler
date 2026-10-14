@@ -404,6 +404,9 @@ python tools/validate_pack.py
 
 ## Known constraints (Sprint 02)
 
+- A saved `health <= 0` is repaired to full health when the next player rig spawns
+  (`GameSession.apply_to_player`), not while loading the snapshot: the rig's `max_health` is only
+  known at spawn time.
 - World state is not persisted: enemies and drops reset when a world is re-entered; claimed reward
   keys are persisted, so a claimed drop never reappears.
 - Standing position is not persisted; the save stores world + spawn id only.

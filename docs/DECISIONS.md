@@ -222,8 +222,9 @@ Decision:
   `version < CURRENT` -> the `MIGRATIONS` chain (empty in Sprint 02; adding a table entry plus a
   migration test is the extension point).
 - Semantic filtering happens in `GameSession.apply_snapshot`: unknown item ids, claimed keys and
-  invalid world ids are dropped with warnings; `health <= 0` becomes full HP; a missing spawn id falls
-  back to the world default.
+  invalid world ids are dropped with warnings; a missing spawn id falls back to the world default.
+  A saved `health <= 0` is kept in the snapshot and is turned into full health when the next rig
+  spawns (`GameSession.apply_to_player`), because only there is the rig's `max_health` known.
 - Saving is explicit in-world (the hub shrine calls `GameSession.save_now()`); loading happens at
   boot. No autosave, no save-on-quit, no keybinds.
 Consequences: corruption or a future version degrades to a new game with a diagnostic instead of a
