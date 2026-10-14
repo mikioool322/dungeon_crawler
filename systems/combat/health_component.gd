@@ -5,7 +5,8 @@ extends Node
 ## state; it never decides consequences: the owning actor reacts to `died`.
 ##
 ## Invariants:
-## - Single mutation point: `apply_damage()` is the only way HP changes.
+## - Mutation points: `apply_damage()` (combat) and `restore()` (a fresh rig on
+##   world load, ADR-007); nothing else writes HP.
 ## - HP is clamped to [0, max_health].
 ## - `died` is emitted exactly once per life; damage after death is rejected with
 ##   `DamageResult.REASON_TARGET_DEAD` and never re-emits.
@@ -62,6 +63,27 @@ func _ready() -> void:
 func reset() -> void:
 	current_health = maxf(max_health, 0.0)
 	_death_reported = false
+	health_changed.emit(current_health, max_health)
+
+
+## Sets HP to `value`, clamped to [0, max_health], and emits `health_changed`.
+##
+## This is the world-load seam (ADR-007): a freshly instantiated rig is restored to
+## the persisted life *after* `add_child()`, because `_ready()` starts it at full HP.
+## It is never used for damage - `apply_damage()` owns that path.
+##
+## Death bookkeeping follows the resulting value: a restored 0 HP reads as already
+## dead (`died` is NOT emitted here, and damage is rejected as target-dead until a
+## positive value is restored), while any positive value re-arms `died` for the next
+## lethal hit. Owners still cache the transition themselves (`EnemyBrain` keeps its
+## terminal DEAD state), so restoring HP revives a component, not an actor.
+##
+## Non-finite input can never poison `current_health`: NAN is treated as 0, infinities
+## clamp like any other out-of-range value.
+func restore(value: float) -> void:
+	var safe_value := value if not is_nan(value) else 0.0
+	current_health = clampf(safe_value, 0.0, maxf(max_health, 0.0))
+	_death_reported = current_health <= 0.0
 	health_changed.emit(current_health, max_health)
 
 
