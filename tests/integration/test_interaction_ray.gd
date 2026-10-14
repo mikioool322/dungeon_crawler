@@ -5,8 +5,8 @@ extends "res://tests/test_case.gd"
 ## Real physics: a minimal rig (a body with a `HealthComponent`, an eye-height view
 ## node and a controller), world geometry on layer `world`, interactables on layer
 ## `interactable`. The travel provider is a local `Callable` and loot is a real
-## `LootService` with a stub registry, because `systems/interaction/**` must never
-## import `world/**`.
+## `LootService` backed by a real `ContentRegistry`, because
+## `systems/interaction/**` must never import `world/**`.
 ##
 ## Covered here (the unit files cover the base and the portal in isolation):
 ## focus + prompt, wall occlusion, walking out of reach, `enabled = false`, the
@@ -36,16 +36,12 @@ class _CountingInteractable extends Interactable:
 		return InteractionResult.ok("probe")
 
 
-## Minimal stand-in for `ContentRegistry` (W1b): `LootService` only needs a
-## duck-typed `find_item(id) -> ItemDefinition`.
-class _StubRegistry extends RefCounted:
-	var _items: Dictionary = {}
-
-	func add(item: ItemDefinition) -> void:
-		_items[item.id] = item
-
-	func find_item(id: StringName) -> ItemDefinition:
-		return _items.get(id)
+## Builds a real `ContentRegistry` from a hand-written manifest, so the loot path is
+## exercised exactly as shipped (no duck-typed stand-in).
+func _registry_with(items: Array[ItemDefinition]) -> ContentRegistry:
+	var manifest := ContentManifest.new()
+	manifest.items = items
+	return ContentRegistry.build(manifest)
 
 
 var _world: Node3D
@@ -192,7 +188,7 @@ func _spawn_interactable(
 	return interactable
 
 
-func _setup_loot(registry: Object = null) -> void:
+func _setup_loot(registry: ContentRegistry = null) -> void:
 	_state = PlayerSessionState.new()
 	_loot = LootService.new()
 	_loot.setup(_state, registry)
@@ -366,8 +362,8 @@ func test_a_double_press_grants_a_one_shot_pickup_exactly_once() -> void:
 	salve.stackable = true
 	salve.max_stack = 5
 	assert_true(salve.is_valid(), "the fixture item is valid")
-	var registry := _StubRegistry.new()
-	registry.add(salve)
+	var registry_items: Array[ItemDefinition] = [salve]
+	var registry := _registry_with(registry_items)
 	_setup_loot(registry)
 
 	var reward := RewardDefinition.new()

@@ -15,15 +15,11 @@ extends RefCounted
 ## - The service never decides *when* loot exists: enemy death and pickups create the
 ##   grant, the world host supplies the key, this service only applies it.
 ##
-## Registry injection (do-not-guess note for reviewers):
-## - `setup()` takes the registry as a duck-typed `Object` that must expose
-##   `find_item(id: StringName) -> ItemDefinition` — the frozen `ContentRegistry`
-##   lookup API. `systems/content/content_registry.gd` is delivered by work item W1b
-##   and does not exist in this branch yet, so the parameter cannot be annotated with
-##   that class name here. Once it lands, annotating the parameter as
-##   `ContentRegistry` is a one-line tightening with no call-site change.
-## - A missing registry, or one without `find_item`, degrades to `unknown_item` for
-##   item rewards; gold-only grants never need the registry.
+## Registry injection:
+## - `setup()` takes the typed `ContentRegistry`; the service resolves items only
+##   through its frozen `find_item(id) -> ItemDefinition` lookup.
+## - A missing registry (null) degrades to `unknown_item` for item rewards;
+##   gold-only grants never need the registry.
 ## - A definition returned by the registry must itself pass `ItemDefinition.is_valid()`,
 ##   otherwise it is treated as `unknown_item` (a bag cannot represent it).
 
@@ -35,12 +31,12 @@ const CODE_INVALID := &"invalid"
 const CODE_UNKNOWN_ITEM := &"unknown_item"
 
 var _state: PlayerSessionState = null
-var _registry: Object = null
+var _registry: ContentRegistry = null
 
 
-## Binds the run state and the content registry. Both may be null; the service then
-## reports `invalid` (never crashes) until `setup()` is called with a state.
-func setup(state: PlayerSessionState, registry: Object) -> void:
+## Binds the run state and the content registry. The state may be null; the service
+## then reports `invalid` (never crashes) until `setup()` is called with a state.
+func setup(state: PlayerSessionState, registry: ContentRegistry) -> void:
 	_state = state
 	_registry = registry
 
@@ -88,15 +84,13 @@ func grant(grant: LootGrant) -> StringName:
 	return CODE_GRANTED
 
 
-## Resolves an item through the registry's frozen lookup API, or null.
+## Resolves an item through the registry's lookup API, or null.
 func _find_item(item_id: StringName) -> ItemDefinition:
-	if _registry == null or not _registry.has_method(&"find_item"):
+	if _registry == null:
 		return null
-	var found: Variant = _registry.call(&"find_item", item_id)
-	if found is ItemDefinition:
-		var item := found as ItemDefinition
-		if item.is_valid():
-			return item
+	var found := _registry.find_item(item_id)
+	if found != null and found.is_valid():
+		return found
 	return null
 
 

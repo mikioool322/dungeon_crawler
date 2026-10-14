@@ -20,11 +20,11 @@ extends Resource
 ## Enemy archetypes, indexed by `EnemyDefinition.id`.
 @export var enemies: Array[EnemyDefinition] = []
 
-## Items, indexed by `ItemDefinition.id`. Retype to `Array[ItemDefinition]` after W1a.
-@export var items: Array[Resource] = []
+## Items, indexed by `ItemDefinition.id`.
+@export var items: Array[ItemDefinition] = []
 
-## Loot rewards, indexed by `RewardDefinition.id`. Retype to `Array[RewardDefinition]` after W1a.
-@export var rewards: Array[Resource] = []
+## Loot rewards, indexed by `RewardDefinition.id`.
+@export var rewards: Array[RewardDefinition] = []
 
-## Worlds, indexed by `WorldDefinition.id`. Retype to `Array[WorldDefinition]` after W1a.
-@export var worlds: Array[Resource] = []
+## Worlds, indexed by `WorldDefinition.id`.
+@export var worlds: Array[WorldDefinition] = []

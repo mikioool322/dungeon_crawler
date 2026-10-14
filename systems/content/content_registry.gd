@@ -10,13 +10,8 @@ extends RefCounted
 ##   missing lookup plus a diagnostic, never to a boot failure.
 ## - `is_valid() == errors.is_empty()`; there is no other validity state.
 ## - No folder scanning: what the manifest lists is what exists.
-##
-## Sprint 02 dependency note (W1b): `ItemDefinition`, `RewardDefinition` and
-## `WorldDefinition` are W1a deliverables that are not part of this branch yet, so
-## item/reward/world entries are recognised by their member surface (plus each
-## definition's own `validation_errors()`) instead of an `is` check, and
-## `find_item` / `find_reward` / `find_world` return an untyped value. When W1a is
-## merged, add the concrete `is` checks and the typed return annotations.
+## - Every entry is checked against its concrete definition class, so a resource of
+##   the wrong kind is reported instead of being silently indexed.
 
 const KIND_ATTACK: String = "attack"
 const KIND_ENEMY: String = "enemy"
@@ -24,14 +19,8 @@ const KIND_ITEM: String = "item"
 const KIND_REWARD: String = "reward"
 const KIND_WORLD: String = "world"
 
-## Members that distinguish a kind, on top of the shared `id` and `validation_errors()`.
-const REQUIRED_MEMBERS: Dictionary = {
-	KIND_ATTACK: ["reach", "windup"],
-	KIND_ENEMY: ["move_speed", "attack_definition"],
-	KIND_ITEM: ["display_name", "max_stack"],
-	KIND_REWARD: ["item", "gold"],
-	KIND_WORLD: ["scene", "default_spawn_id"],
-}
+## Members that distinguish a kind are no longer probed by name: every entry is
+## checked against its concrete class in `_matches_kind()`.
 
 ## Manifest field name per kind, used in diagnostics.
 const BUCKET_NAMES: Dictionary = {
@@ -81,24 +70,27 @@ func find_enemy(id: StringName) -> EnemyDefinition:
 	return found
 
 
-## Returns the `ItemDefinition` for `id` once W1a is merged (see the class note).
-func find_item(id: StringName) -> Variant:
-	return _items.get(id)
+## Returns the `ItemDefinition` for `id`, or null.
+func find_item(id: StringName) -> ItemDefinition:
+	return _items.get(id) as ItemDefinition
 
 
-## Returns the `RewardDefinition` for `id` once W1a is merged (see the class note).
-func find_reward(id: StringName) -> Variant:
-	return _rewards.get(id)
+## Returns the `RewardDefinition` for `id`, or null.
+func find_reward(id: StringName) -> RewardDefinition:
+	return _rewards.get(id) as RewardDefinition
 
 
-## Returns the `WorldDefinition` for `id` once W1a is merged (see the class note).
-func find_world(id: StringName) -> Variant:
-	return _worlds.get(id)
+## Returns the `WorldDefinition` for `id`, or null.
+func find_world(id: StringName) -> WorldDefinition:
+	return _worlds.get(id) as WorldDefinition
 
 
 ## Every world that was indexed successfully, in manifest order.
-func all_worlds() -> Array:
-	return _worlds.values()
+func all_worlds() -> Array[WorldDefinition]:
+	var worlds: Array[WorldDefinition] = []
+	for value: Variant in _worlds.values():
+		worlds.append(value as WorldDefinition)
+	return worlds
 
 
 func _to_string() -> String:
@@ -109,12 +101,8 @@ func _to_string() -> String:
 
 # --- indexing -----------------------------------------------------------------
 
-func _collect(kind: String, definitions: Variant, index: Dictionary) -> void:
+func _collect(kind: String, definitions: Array, index: Dictionary) -> void:
 	var bucket: String = BUCKET_NAMES[kind]
-	if not definitions is Array:
-		errors.append("%s: the manifest entry is not an array" % bucket)
-		return
-	var required: Array = REQUIRED_MEMBERS[kind]
 	for i in definitions.size():
 		var label := "%s[%d]" % [bucket, i]
 		var definition: Variant = definitions[i]
@@ -124,10 +112,9 @@ func _collect(kind: String, definitions: Variant, index: Dictionary) -> void:
 		if not definition is Resource:
 			errors.append("%s must be a Resource (got %s)" % [label, type_string(typeof(definition))])
 			continue
-		var missing := _missing_members(definition, required)
-		if not missing.is_empty():
-			errors.append("%s is not a valid %s definition (missing: %s)" % [
-				label, kind, ", ".join(missing)
+		if not _matches_kind(kind, definition as Resource):
+			errors.append("%s is not a valid %s definition (got %s)" % [
+				label, kind, _class_name_of(definition as Resource)
 			])
 			continue
 		var id: StringName = _id_of(definition)
@@ -139,6 +126,30 @@ func _collect(kind: String, definitions: Variant, index: Dictionary) -> void:
 			continue
 		index[id] = definition
 		_append_definition_errors(kind, id, definition)
+
+
+## Concrete class check per bucket: a resource of the wrong kind is a content error.
+static func _matches_kind(kind: String, definition: Resource) -> bool:
+	match kind:
+		KIND_ATTACK:
+			return definition is AttackDefinition
+		KIND_ENEMY:
+			return definition is EnemyDefinition
+		KIND_ITEM:
+			return definition is ItemDefinition
+		KIND_REWARD:
+			return definition is RewardDefinition
+		KIND_WORLD:
+			return definition is WorldDefinition
+	return false
+
+
+static func _class_name_of(definition: Resource) -> String:
+	var script := definition.get_script() as Script
+	if script == null:
+		return definition.get_class()
+	var global_name := String(script.get_global_name())
+	return global_name if global_name != "" else definition.get_class()
 
 
 ## Prefixes the definition's own validation messages, so `errors` points at the
@@ -154,56 +165,33 @@ func _append_definition_errors(kind: String, id: StringName, definition: Object)
 
 func _check_cross_references() -> void:
 	for reward_id: StringName in _rewards:
-		var reward: Object = _rewards[reward_id]
-		var item: Variant = reward.get("item")
-		if item == null:
+		var reward := _rewards[reward_id] as RewardDefinition
+		if reward.item == null:
 			continue
-		var item_id: StringName = _id_of(item)
-		if not _items.has(item_id):
-			errors.append("reward '%s': item '%s' is not listed in the manifest" % [reward_id, item_id])
+		if not _items.has(reward.item.id):
+			errors.append("reward '%s': item '%s' is not listed in the manifest" % [
+				reward_id, reward.item.id
+			])
 
 	for enemy_id: StringName in _enemies:
-		var enemy: Object = _enemies[enemy_id]
-		var attack: Variant = enemy.get("attack_definition")
-		if attack == null:
+		var enemy := _enemies[enemy_id] as EnemyDefinition
+		if enemy.attack_definition == null:
 			errors.append("enemy '%s': attack_definition is null" % enemy_id)
-		elif not _attacks.has(_id_of(attack)):
+		elif not _attacks.has(enemy.attack_definition.id):
 			errors.append("enemy '%s': attack '%s' is not listed in the manifest" % [
-				enemy_id, _id_of(attack)
+				enemy_id, enemy.attack_definition.id
 			])
-		if not _has_property(enemy, "reward"):
-			continue
-		var reward: Variant = enemy.get("reward")
-		if reward != null and not _rewards.has(_id_of(reward)):
+		if enemy.reward != null and not _rewards.has(enemy.reward.id):
 			errors.append("enemy '%s': reward '%s' is not listed in the manifest" % [
-				enemy_id, _id_of(reward)
+				enemy_id, enemy.reward.id
 			])
 
 
-# --- reflection helpers -------------------------------------------------------
+# --- helpers ------------------------------------------------------------------
 
-static func _missing_members(definition: Object, required: Array) -> PackedStringArray:
-	var missing := PackedStringArray()
-	for member: String in required:
-		if not _has_property(definition, member):
-			missing.append(member)
-	if not _has_property(definition, "id"):
-		missing.append("id")
-	if not definition.has_method("validation_errors"):
-		missing.append("validation_errors()")
-	return missing
-
-
-static func _has_property(object: Object, property_name: String) -> bool:
-	for property in object.get_property_list():
-		if String(property.get("name", "")) == property_name:
-			return true
-	return false
-
-
-## The stable id of a referenced resource, or "" when it has none.
+## The stable id of a definition, or "" when it has none.
 static func _id_of(value: Variant) -> StringName:
-	if value is Object and _has_property(value, "id"):
+	if value is Object and value.get("id") != null:
 		var id: Variant = value.get("id")
 		if id is StringName:
 			return id

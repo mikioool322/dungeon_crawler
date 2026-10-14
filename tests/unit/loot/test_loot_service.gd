@@ -3,10 +3,8 @@ extends "res://tests/test_case.gd"
 ## AC-22 — loot idempotency per grant key, atomic rejection (ADR-009).
 ## Pure domain logic: no SceneTree.
 ##
-## Registry injection route: `ContentRegistry` (work item W1b) does not exist in this
-## branch, so `LootService.setup()` takes the registry duck-typed and resolves items
-## through the frozen `find_item(id) -> ItemDefinition` API only. The stub below has
-## exactly that shape; when W1b lands, it can extend the real class instead.
+## The loot service resolves items through a real `ContentRegistry` built from a
+## small in-test manifest, so the registry lookup path is exercised as shipped.
 
 const WORLD_ID := &"world.dungeon.proto01"
 const SOURCE_ID := &"enemy.a"
@@ -15,18 +13,8 @@ const CHEST_KEY := &"world.dungeon.proto01/chest.a"
 const ITEM_ID := &"item.minor_salve"
 
 
-class StubRegistry extends RefCounted:
-	var _items: Dictionary = {}
-
-	func add(item: ItemDefinition) -> void:
-		_items[item.id] = item
-
-	func find_item(item_id: StringName) -> ItemDefinition:
-		return _items.get(item_id) as ItemDefinition
-
-
 var _state: PlayerSessionState = null
-var _registry: StubRegistry = null
+var _registry: ContentRegistry = null
 var _loot: LootService = null
 var _granted_count: int = 0
 var _last_gold_total: int = -1
@@ -35,14 +23,20 @@ var _last_grant: LootGrant = null
 
 func setup() -> void:
 	_state = PlayerSessionState.new()
-	_registry = StubRegistry.new()
-	_registry.add(_item())
+	_registry = _registry_with([_item()])
 	_loot = LootService.new()
 	_loot.setup(_state, _registry)
 	_granted_count = 0
 	_last_gold_total = -1
 	_last_grant = null
 	_loot.reward_granted.connect(_on_reward_granted)
+
+
+## Builds a registry from a hand-written manifest (ADR-011: explicit content list).
+func _registry_with(items: Array[ItemDefinition]) -> ContentRegistry:
+	var manifest := ContentManifest.new()
+	manifest.items = items
+	return ContentRegistry.build(manifest)
 
 
 func _on_reward_granted(grant: LootGrant, gold_total: int) -> void:
@@ -205,7 +199,8 @@ func test_unknown_item_is_rejected_without_mutation() -> void:
 	assert_eq(_granted_count, 0, "no signal")
 
 	# The content is fixed (or the id corrected); the same key must still work.
-	_registry.add(_item())
+	var items: Array[ItemDefinition] = [_item()]
+	_loot.setup(_state, _registry_with(items))
 	assert_eq(
 		_loot.grant(_item_grant(1)), LootService.CODE_GRANTED, "a resolvable item can still grant the key"
 	)
@@ -271,12 +266,12 @@ func test_grant_without_a_bound_state_is_invalid() -> void:
 
 func test_gold_only_grants_work_without_a_registry_lookup() -> void:
 	var service := LootService.new()
-	service.setup(_state, RefCounted.new())
+	service.setup(_state, null)
 	assert_eq(service.grant(_gold_grant(3)), LootService.CODE_GRANTED, "gold needs no registry")
 	assert_eq(
 		service.grant(_item_grant(1, 0, CHEST_KEY)),
 		LootService.CODE_UNKNOWN_ITEM,
-		"an item grant without a find_item registry is unknown_item"
+		"an item grant without a registry is unknown_item"
 	)
 	assert_false(_state.is_claimed(CHEST_KEY), "and consumes no key")
 	assert_eq(_state.gold, 3, "the successful gold grant is unaffected")

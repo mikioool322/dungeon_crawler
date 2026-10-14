@@ -4,81 +4,25 @@ extends "res://tests/test_case.gd"
 ## duplicates, empty ids, null entries, wrong kinds, invalid definitions and broken
 ## cross-references, while every valid id stays resolvable.
 ##
-## `ItemStub`, `RewardStub` and `WorldStub` below stand in for the W1a definitions
-## (`ItemDefinition`, `RewardDefinition`, `WorldDefinition`), which are not part of
-## this branch yet. They expose exactly the member surface the frozen contract
-## defines, which is what the registry duck-types until those classes land; replace
-## the stubs with the real definitions when W1a is merged.
-## Attacks and enemies use the real Sprint 01 classes.
-
-class ItemStub extends Resource:
-	var id: StringName = &""
-	var display_name: String = ""
-	var description: String = ""
-	var kind: int = 0
-	var stackable: bool = true
-	var max_stack: int = 1
-
-	func validation_errors() -> PackedStringArray:
-		var errors := PackedStringArray()
-		if id == &"":
-			errors.append("id must not be empty")
-		if display_name == "":
-			errors.append("display_name must not be empty")
-		if max_stack < 1:
-			errors.append("max_stack must be >= 1")
-		return errors
-
-
-class RewardStub extends Resource:
-	var id: StringName = &""
-	var item: Resource = null
-	var item_count: int = 0
-	var gold: int = 0
-
-	func validation_errors() -> PackedStringArray:
-		var errors := PackedStringArray()
-		if id == &"":
-			errors.append("id must not be empty")
-		if gold < 0:
-			errors.append("gold must be >= 0")
-		if item == null and item_count != 0:
-			errors.append("item_count must be 0 for a gold-only reward")
-		if item != null and item_count < 1:
-			errors.append("item_count must be >= 1 when an item is set")
-		if item == null and gold == 0:
-			errors.append("at least one of item/gold is required")
-		return errors
-
-
-class WorldStub extends Resource:
-	var id: StringName = &""
-	var display_name: String = ""
-	var scene: PackedScene = null
-	var default_spawn_id: StringName = &""
-
-	func validation_errors() -> PackedStringArray:
-		var errors := PackedStringArray()
-		if id == &"":
-			errors.append("id must not be empty")
-		if display_name == "":
-			errors.append("display_name must not be empty")
-		if scene == null:
-			errors.append("scene must not be null")
-		return errors
-
+## All five kinds use the real definition classes (Sprint 01 for attacks/enemies,
+## W1a for items/rewards/worlds), so the registry's typed `is` checks are what the
+## test exercises.
 
 # --- fixtures -----------------------------------------------------------------
 
-func _item(id: StringName, display_name: String = "Minor Salve") -> ItemStub:
-	var item := ItemStub.new()
+func _item(id: StringName, display_name: String = "Minor Salve") -> ItemDefinition:
+	var item := ItemDefinition.new()
 	item.id = id
 	item.display_name = display_name
+	item.stackable = true
+	item.max_stack = 5
 	return item
 
 
-func _reward(id: StringName, item: Resource = null, item_count: int = 0, gold: int = 0) -> RewardStub:
-	var reward := RewardStub.new()
+func _reward(
+	id: StringName, item: ItemDefinition = null, item_count: int = 0, gold: int = 0
+) -> RewardDefinition:
+	var reward := RewardDefinition.new()
 	reward.id = id
 	reward.item = item
 	reward.item_count = item_count
@@ -86,11 +30,12 @@ func _reward(id: StringName, item: Resource = null, item_count: int = 0, gold: i
 	return reward
 
 
-func _world(id: StringName) -> WorldStub:
-	var world := WorldStub.new()
+func _world(id: StringName) -> WorldDefinition:
+	var world := WorldDefinition.new()
 	world.id = id
 	world.display_name = String(id)
 	world.scene = PackedScene.new()
+	world.default_spawn_id = &"spawn.test"
 	return world
 
 
@@ -226,16 +171,34 @@ func test_a_definition_with_a_unique_id_is_indexed_even_when_it_is_invalid() -> 
 	assert_eq(registry.find_item(&"item.nameless"), nameless, "the id stays resolvable")
 
 
-func test_a_resource_of_the_wrong_kind_is_reported() -> void:
+func test_the_manifest_buckets_are_typed_to_their_definition_classes() -> void:
+	## The typed array is the first line of defence: a wrong-kind resource cannot even be
+	## stored, so the registry's own kind guard is only reachable from a hand-edited or
+	## future non-manifest source (tested below). Asserting the typing avoids provoking an
+	## engine error on purpose.
 	var manifest := ContentManifest.new()
-	manifest.items.append(_world(&"world.hub"))
-	manifest.rewards.append(_item(&"item.minor_salve"))
+	assert_eq(manifest.items.get_typed_script(), ItemDefinition, "items is typed to ItemDefinition")
+	assert_eq(manifest.rewards.get_typed_script(), RewardDefinition, "rewards is typed")
+	assert_eq(manifest.worlds.get_typed_script(), WorldDefinition, "worlds is typed")
+	assert_eq(manifest.attacks.get_typed_script(), AttackDefinition, "attacks is typed")
+	assert_eq(manifest.enemies.get_typed_script(), EnemyDefinition, "enemies is typed")
 
-	var registry := ContentRegistry.build(manifest)
+
+func test_the_registry_reports_a_wrong_kind_entry() -> void:
+	## White-box: drives the guard directly, because typed arrays make it unreachable
+	## through `ContentManifest`. Defence in depth for a hand-edited manifest.
+	var registry := ContentRegistry.new()
+	var index: Dictionary = {}
+	var misplaced: Array = [_world(&"world.hub"), _item(&"item.minor_salve")]
+	registry._collect(ContentRegistry.KIND_ITEM, misplaced, index)
+
 	assert_false(registry.is_valid(), "a misplaced resource invalidates the registry")
-	assert_true(_has_error(registry.errors, "items[0] is not a valid item definition"), "%s" % registry.errors)
-	assert_true(_has_error(registry.errors, "rewards[0] is not a valid reward definition"), "%s" % registry.errors)
-	assert_null(registry.find_item(&"world.hub"), "and it is not indexed")
+	assert_true(
+		_has_error(registry.errors, "items[0] is not a valid item definition"),
+		"%s" % registry.errors
+	)
+	assert_eq(index.size(), 1, "only the well-formed entry is indexed")
+	assert_null(registry.find_item(&"world.hub"), "the misplaced world is not an item")
 
 
 func test_a_reward_pointing_at_an_unlisted_item_is_reported() -> void:

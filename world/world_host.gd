@@ -12,7 +12,8 @@ extends Node3D
 ##   rules, and combat never learns about inventory.
 
 ## Name of the router-managed player child of a world root (ADR-007).
-const PLAYER_NODE_NAME: StringName = &"Player"
+## Kept as String because Node lookups require a NodePath-convertible value.
+const PLAYER_NODE_NAME: String = "Player"
 
 ## Stable world id; the router cross-checks it against the WorldDefinition.
 @export var world_id: StringName = &""
