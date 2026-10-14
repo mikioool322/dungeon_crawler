@@ -1,0 +1,175 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://world/prototype/proto_arena.gd" id="1_proto_arena"]
+[ext_resource type="Script" path="res://world/prototype/arena_debug_hud.gd" id="2_debug_hud"]
+[ext_resource type="PackedScene" path="res://actors/player/player.tscn" id="3_player"]
+[ext_resource type="PackedScene" path="res://actors/enemies/enemy.tscn" id="4_enemy"]
+
+[sub_resource type="Environment" id="Environment_arena"]
+background_mode = 1
+background_color = Color(0.05, 0.05, 0.07, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.45, 0.45, 0.5, 1)
+ambient_light_energy = 0.6
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_stone"]
+albedo_color = Color(0.27, 0.26, 0.28, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pillar"]
+albedo_color = Color(0.45, 0.42, 0.38, 1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="BoxMesh_floor"]
+material = SubResource("StandardMaterial3D_stone")
+size = Vector3(40, 1, 40)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_z"]
+material = SubResource("StandardMaterial3D_stone")
+size = Vector3(40, 4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_x"]
+material = SubResource("StandardMaterial3D_stone")
+size = Vector3(1, 4, 40)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pillar"]
+material = SubResource("StandardMaterial3D_pillar")
+size = Vector3(2, 3, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_z"]
+size = Vector3(40, 4, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_x"]
+size = Vector3(1, 4, 40)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_pillar"]
+size = Vector3(2, 3, 2)
+
+[node name="ProtoArena" type="Node3D"]
+script = ExtResource("1_proto_arena")
+player_path = NodePath("Player")
+enemy_path = NodePath("Enemy")
+hud_path = NodePath("Hud")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_arena")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.766044, -0.321394, 0.55667, 0, 0.866025, 0.5, -0.642788, -0.383022, 0.663414, 0, 12, 0)
+light_energy = 0.8
+shadow_enabled = true
+
+[node name="Floor" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor"]
+shape = SubResource("BoxShape3D_floor")
+
+[node name="Mesh" type="MeshInstance3D" parent="Floor"]
+mesh = SubResource("BoxMesh_floor")
+
+[node name="WallNorth" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -20.5)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallNorth"]
+shape = SubResource("BoxShape3D_wall_z")
+
+[node name="Mesh" type="MeshInstance3D" parent="WallNorth"]
+mesh = SubResource("BoxMesh_wall_z")
+
+[node name="WallSouth" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 20.5)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallSouth"]
+shape = SubResource("BoxShape3D_wall_z")
+
+[node name="Mesh" type="MeshInstance3D" parent="WallSouth"]
+mesh = SubResource("BoxMesh_wall_z")
+
+[node name="WallEast" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.5, 2, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallEast"]
+shape = SubResource("BoxShape3D_wall_x")
+
+[node name="Mesh" type="MeshInstance3D" parent="WallEast"]
+mesh = SubResource("BoxMesh_wall_x")
+
+[node name="WallWest" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20.5, 2, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallWest"]
+shape = SubResource("BoxShape3D_wall_x")
+
+[node name="Mesh" type="MeshInstance3D" parent="WallWest"]
+mesh = SubResource("BoxMesh_wall_x")
+
+[node name="PillarWest" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 1.5, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PillarWest"]
+shape = SubResource("BoxShape3D_pillar")
+
+[node name="Mesh" type="MeshInstance3D" parent="PillarWest"]
+mesh = SubResource("BoxMesh_pillar")
+
+[node name="PillarEast" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 1.5, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PillarEast"]
+shape = SubResource("BoxShape3D_pillar")
+
+[node name="Mesh" type="MeshInstance3D" parent="PillarEast"]
+mesh = SubResource("BoxMesh_pillar")
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 6)
+
+[node name="Enemy" parent="." instance=ExtResource("4_enemy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, -5)
+
+[node name="Hud" type="CanvasLayer" parent="." node_paths=PackedStringArray("player_hp_label", "enemy_status_label", "hint_label")]
+script = ExtResource("2_debug_hud")
+player_hp_label = NodePath("Status/PlayerHp")
+enemy_status_label = NodePath("Status/EnemyStatus")
+hint_label = NodePath("Hint")
+
+[node name="Status" type="VBoxContainer" parent="Hud"]
+offset_left = 12.0
+offset_top = 10.0
+offset_right = 520.0
+offset_bottom = 58.0
+
+[node name="PlayerHp" type="Label" parent="Hud/Status"]
+theme_override_font_sizes/font_size = 16
+text = "Player HP: --"
+
+[node name="EnemyStatus" type="Label" parent="Hud/Status"]
+theme_override_font_sizes/font_size = 16
+text = "Enemy: --"
+
+[node name="Hint" type="Label" parent="Hud"]
+offset_left = 12.0
+offset_top = 660.0
+offset_right = 900.0
+offset_bottom = 690.0
+theme_override_font_sizes/font_size = 14
+text = "WASD move | mouse look | left click attack | backpedal to dodge | Esc release mouse | R restart"

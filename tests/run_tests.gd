@@ -74,13 +74,23 @@ func _run_file(path: String) -> void:
 		_assertions += new_assertions
 		_tests_run += 1
 		var new_failures := failures_before.slice(count_before)
-		if new_failures.is_empty():
-			print("PASS  %s::%s (%d assertions)" % [path, method_name, new_assertions])
-		else:
+		if not new_failures.is_empty():
 			_tests_failed += 1
 			print("FAIL  %s::%s (%d assertions)" % [path, method_name, new_assertions])
 			for message in new_failures:
 				_failure_messages.append(message)
+		elif new_assertions == 0:
+			# A test that ran no assertion at all almost always aborted on a runtime
+			# error (GDScript has no exceptions: an engine call can end the function
+			# silently). Treat it as a failure instead of a silent pass.
+			_tests_failed += 1
+			var abort_message := "%s::%s: no assertion ran - did the test abort on a runtime error?" % [
+				path, method_name
+			]
+			_failure_messages.append(abort_message)
+			print("FAIL  %s" % abort_message)
+		else:
+			print("PASS  %s::%s (%d assertions)" % [path, method_name, new_assertions])
 
 
 ## Coroutine detection: GDScriptFunctionState is not exposed as a GDScript type,
