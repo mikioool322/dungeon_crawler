@@ -22,7 +22,7 @@ assets (ADR-003).
 | W4 | Enemy rig: `EnemyFsm`, `EnemyDefinition`, scene, telegraph, damage reaction, death | `gameplay-engineer` | `systems/ai/**`, `actors/enemies/**`, `content/definitions/attack_enemy_basic.tres`, `content/definitions/enemy_grunt.tres` | done (772d6d7) |
 | W5 | Greybox arena scene + wiring + debug HUD | `godot-specialist` | `world/prototype/**`, `content/definitions/sprint01_arena*` (if any), one `main_scene` line in `project.godot` (single-writer) | done (135f717) |
 | W6 | QA: integration tests, parser/import validation, scene boot smoke, runtime error check, manual checklist, evidence | `qa-engineer` | `tests/integration/**`, `tests/manual/**` | done (84c11f7; manual checks NOT RUN) |
-| W7 | Independent review, CRITICAL/HIGH fixes, re-validation | `reviewer` (read-only) + coordinator fixes | fixes only in the owning files of the findings | in progress |
+| W7 | Independent review, CRITICAL/HIGH fixes, re-validation | `reviewer` (read-only) + coordinator fixes | fixes only in the owning files of the findings | done (f632df5) |
 
 W3 and W4 have disjoint file sets and may run in parallel in separate worktrees; W5 requires both merged.
 `project.godot`, `core/physics/physics_layers.gd` and `docs/DECISIONS.md` are single-writer (ADR-005).
@@ -93,8 +93,18 @@ GODOT = "C:\Users\mikio\Desktop\Godot_v4.7.2-stable_win64_console.exe"
    Note: losing line of sight alone does **not** make the enemy give up (see Known constraints).
 9. No runtime errors in the Godot Output panel during a ~2 minute session.
 
-## Known constraints
+## Review outcome (W7)
 
+The independent review found **no CRITICAL or HIGH defects**. It confirmed the layering, the
+single HP mutation site, the ADR-004 hit-frame model (one query per swing, one damage application
+per target, no cancellation on retreat) and that the shipped numbers match the content freeze.
+Two MEDIUM issues and several LOW ones were fixed in `f632df5`; the F2 fix matters most for process
+integrity: the self-hit exclusion test had been passing for the wrong reason (the fixture attacker
+had no `HealthComponent`, so the swing resolved as `no_target`). The fixed tests were
+mutation-checked: breaking self-exclusion, rejection precedence or the abort-reason reset each
+makes exactly the intended test fail.
+
+## Known constraints
 - Numbers (damage, reach, timings) are placeholders; balance is out of scope.
 - Escape window math: the enemy gate is `reach + hit_radius = 1.95 m` with a 0.7 s windup, so
   leaving reach needs roughly 2.0 m of backpedal — the player's 4.0 m/s walk gives ~0.8 m of
