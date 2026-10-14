@@ -13,7 +13,7 @@ hud = NodePath("Hud")
 
 [node name="WorldSlot" type="Node3D" parent="."]
 
-[node name="Router" type="Node" parent="." node_paths=PackedStringArray("player_scene")]
+[node name="Router" type="Node" parent="."]
 script = ExtResource("2_router")
 player_scene = ExtResource("3_player")
 respawn_world_id = &"world.hub"

@@ -1,8 +1,13 @@
 extends SceneTree
 
-## TEMPORARY Sprint 02 content generator. Generates the world definitions and the
-## content manifest so the typed arrays serialize exactly as Godot expects, then
-## prints the registry validation result. Deleted right after the run.
+## Sprint 02 content generator (maintenance tool, like tools/setup_input_map.gd).
+##
+## Run:  <godot> --headless --path . -s res://tools/generate_content_manifest.gd
+##
+## It writes the world definitions and the content manifest so the typed arrays
+## serialize exactly as Godot expects, then prints the registry validation result.
+## The script is the source of truth for those .tres files: add content here and
+## re-run it instead of hand-editing the manifest.
 
 const WORLD_HUB := "res://content/definitions/world_hub.tres"
 const WORLD_DUNGEON := "res://content/definitions/world_dungeon_proto01.tres"

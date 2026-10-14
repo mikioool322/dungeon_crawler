@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://actors/player/player_controller.gd" id="1_player_controller"]
 [ext_resource type="Script" path="res://actors/player/player_viewmodel.gd" id="2_player_viewmodel"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://systems/combat/attack_controller.gd" id="4_attack_controller"]
 [ext_resource type="Script" path="res://systems/combat/hit_detector.gd" id="5_hit_detector"]
 [ext_resource type="Resource" path="res://content/definitions/attack_player_basic.tres" id="6_attack_player_basic"]
+[ext_resource type="Script" path="res://systems/interaction/interaction_controller.gd" id="7_interaction_controller"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player_body"]
 radius = 0.4
@@ -67,3 +68,9 @@ hit_detector = NodePath("../HitDetector")
 script = ExtResource("5_hit_detector")
 target_mask = 4
 blocker_mask = 1
+
+[node name="InteractionController" type="Node3D" parent="." node_paths=PackedStringArray("view", "interactor")]
+script = ExtResource("7_interaction_controller")
+view = NodePath("../Head/Camera3D")
+interactor = NodePath("..")
+reach = 2.5

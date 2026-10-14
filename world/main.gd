@@ -14,6 +14,10 @@ const MANIFEST_PATH: String = "res://content/definitions/content_manifest.tres"
 @export var router: WorldRouter = null
 @export var hud: GameHud = null
 
+## Save slot path; empty means the shipped default (`user://save_slot0.json`).
+## Tests inject a temporary path so they never touch a real save.
+@export var save_path: String = ""
+
 var registry: ContentRegistry = null
 var save_manager: SaveManager = null
 var session: GameSession = null
@@ -26,7 +30,7 @@ func _ready() -> void:
 		push_error("Main: content manifest is not valid: %s" % "; ".join(registry.errors))
 
 	save_manager = SaveManager.new()
-	save_manager.setup()
+	save_manager.setup(save_path)
 
 	session = GameSession.new()
 	session.setup(registry, save_manager)

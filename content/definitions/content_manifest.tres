@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="ContentManifest" format=3]
+
+[ext_resource type="Script" path="res://systems/combat/attack_definition.gd" id="1_vxh2m"]
+[ext_resource type="Resource" path="res://content/definitions/attack_player_basic.tres" id="2_04t3b"]
+[ext_resource type="Resource" path="res://content/definitions/attack_enemy_basic.tres" id="3_hyyhe"]
+[ext_resource type="Script" path="res://systems/ai/enemy_definition.gd" id="4_dtutd"]
+[ext_resource type="Resource" path="res://content/definitions/enemy_grunt.tres" id="5_8f37a"]
+[ext_resource type="Script" path="res://core/content/item_definition.gd" id="6_8rwbh"]
+[ext_resource type="Resource" path="res://content/definitions/item_rusty_dagger.tres" id="7_7b7cb"]
+[ext_resource type="Resource" path="res://content/definitions/item_minor_salve.tres" id="8_ug3py"]
+[ext_resource type="Script" path="res://core/content/reward_definition.gd" id="9_5npqu"]
+[ext_resource type="Resource" path="res://content/definitions/reward_grunt_drop.tres" id="10_0hl0v"]
+[ext_resource type="Resource" path="res://content/definitions/reward_chest_proto01.tres" id="11_dd8gp"]
+[ext_resource type="Script" path="res://systems/content/content_manifest.gd" id="12_c6dvn"]
+[ext_resource type="Script" path="res://core/content/world_definition.gd" id="13_xip28"]
+[ext_resource type="PackedScene" path="res://world/hub/hub.tscn" id="14_nnk3r"]
+[ext_resource type="PackedScene" path="res://world/dungeons/dungeon_proto01.tscn" id="15_0ixah"]
+
+[sub_resource type="Resource" id="Resource_mn74w"]
+script = ExtResource("13_xip28")
+id = &"world.hub"
+display_name = "Hub"
+scene = ExtResource("14_nnk3r")
+default_spawn_id = &"spawn.hub.start"
+
+[sub_resource type="Resource" id="Resource_mdfbh"]
+script = ExtResource("13_xip28")
+id = &"world.dungeon.proto01"
+display_name = "Proto Dungeon"
+scene = ExtResource("15_0ixah")
+default_spawn_id = &"spawn.dungeon.entry"
+
+[resource]
+script = ExtResource("12_c6dvn")
+attacks = Array[ExtResource("1_vxh2m")]([ExtResource("2_04t3b"), ExtResource("3_hyyhe")])
+enemies = Array[ExtResource("4_dtutd")]([ExtResource("5_8f37a")])
+items = Array[ExtResource("6_8rwbh")]([ExtResource("7_7b7cb"), ExtResource("8_ug3py")])
+rewards = Array[ExtResource("9_5npqu")]([ExtResource("10_0hl0v"), ExtResource("11_dd8gp")])
+worlds = Array[ExtResource("13_xip28")]([SubResource("Resource_mn74w"), SubResource("Resource_mdfbh")])

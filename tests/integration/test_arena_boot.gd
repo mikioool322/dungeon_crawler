@@ -1,8 +1,9 @@
 extends "res://tests/test_case.gd"
 
-## AC-11 — the greybox arena is the project's main scene, boots headless and wires
-## its actors, obstacles and HUD. Encounter-level scenarios (attack exchange,
-## evasion, death) live in the QA suite, not here.
+## AC-11 — the greybox arena is the Sprint 01 combat regression fixture: it boots
+## headless and wires its actors, obstacles and HUD. Sprint 02 boots through
+## `world/main.tscn` instead (see `test_main_boot.gd`), so the arena is exercised as a
+## scene, not as the project entry point.
 
 const ARENA_SCENE_PATH := "res://world/prototype/proto_arena.tscn"
 
@@ -34,9 +35,12 @@ func _enemy() -> EnemyBrain:
 	return _arena.get_node_or_null("Enemy") as EnemyBrain
 
 
-func test_main_scene_is_the_arena() -> void:
+func test_arena_is_not_the_main_scene_any_more() -> void:
+	## Sprint 02 boots through `world/main.tscn`; the arena stays as the Sprint 01
+	## combat regression fixture. The main-scene contract is asserted in
+	## `tests/integration/test_main_boot.gd`.
 	var main_scene: String = str(ProjectSettings.get_setting("application/run/main_scene", ""))
-	assert_eq(main_scene, ARENA_SCENE_PATH, "the project must boot into the greybox arena")
+	assert_ne(main_scene, ARENA_SCENE_PATH, "the arena must not be the boot scene any more")
 
 
 func test_arena_loads_without_errors_and_has_the_expected_root() -> void:

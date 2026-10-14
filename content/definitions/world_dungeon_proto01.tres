@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="WorldDefinition" format=3]
+
+[ext_resource type="PackedScene" path="res://world/dungeons/dungeon_proto01.tscn" id="1_b2dyu"]
+[ext_resource type="Script" path="res://core/content/world_definition.gd" id="2_bjwcm"]
+
+[resource]
+script = ExtResource("2_bjwcm")
+id = &"world.dungeon.proto01"
+display_name = "Proto Dungeon"
+scene = ExtResource("1_b2dyu")
+default_spawn_id = &"spawn.dungeon.entry"

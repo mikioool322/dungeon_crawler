@@ -139,6 +139,16 @@ func _perform_travel(
 		_free_instance(instance)
 		return failure
 
+	# Services (and the world default spawn id) must be injected before resolving a
+	# marker: an empty request resolves through the world's declared default.
+	next_world.configure(
+		_session,
+		_registry,
+		Callable(self, "request_travel"),
+		_save_callable(),
+		definition.default_spawn_id
+	)
+
 	var marker := next_world.resolve_spawn(spawn_id)
 	if marker == null:
 		push_warning("WorldRouter: world '%s' has no spawn markers" % world_id)
@@ -151,13 +161,6 @@ func _perform_travel(
 	if player == null:
 		_free_instance(instance)
 		return failure
-	next_world.configure(
-		_session,
-		_registry,
-		Callable(self, "request_travel"),
-		_save_callable(),
-		definition.default_spawn_id
-	)
 	next_world.add_child(player)
 
 	if capture_player_health:

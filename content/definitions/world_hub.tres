@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="WorldDefinition" format=3]
+
+[ext_resource type="PackedScene" path="res://world/hub/hub.tscn" id="1_ivehb"]
+[ext_resource type="Script" path="res://core/content/world_definition.gd" id="2_ij7bq"]
+
+[resource]
+script = ExtResource("2_ij7bq")
+id = &"world.hub"
+display_name = "Hub"
+scene = ExtResource("1_ivehb")
+default_spawn_id = &"spawn.hub.start"
