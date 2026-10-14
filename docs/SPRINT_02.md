@@ -371,7 +371,24 @@ const INTERACTABLE: int = 1 << 4      # layer 5; never part of movement_mask()
 | W4 | Worlds, router, host, HUD, content data, bootstrap | coordinator | `world/**`, `presentation/hud/**`, `content/definitions/{item_*,reward_*,world_*,content_manifest}.tres`, `tests/integration/{test_main_boot,test_world_scenes,test_content_graph}.gd` | W1a, W1b, W2, W3 | done (c261544, 1f34fc4) |
 | I1 | Integration: `main_scene` → `world/main.tscn`, move the stale main-scene assertion, full validation | coordinator | `project.godot` (one line), `tests/integration/test_arena_boot.gd` (main-scene test only) | W4 | done (1f34fc4) |
 | W5 | QA: end-to-end loop, save round trip, respawn, manual checklist, runtime-error log, evidence | `qa-engineer` | `tests/integration/{test_sprint02_loop,test_save_round_trip,test_death_respawn}.gd`, `tests/manual/sprint02_checklist.md` | I1 | in progress (branch `feat/s02-qa`) |
-| W6 | Independent review + fixes + re-validation | `reviewer` (read-only) + coordinator | fixes only in the owning files | W5 | planned |
+| W6 | Independent review + fixes + re-validation | `reviewer` (read-only) + coordinator | fixes only in the owning files | W5 | done (4f2ee79) |
+
+### W6 review outcome
+
+The independent review found **0 CRITICAL, 2 HIGH, 1 MEDIUM, 4 LOW, 2 INFO**; all were fixed in
+`4f2ee79` and the fixes were mutation-checked (breaking the gold re-emit or the backup recovery
+each fails exactly the intended tests):
+
+| Finding | Severity | Fix |
+|---------|----------|-----|
+| The HUD gold label never refreshed after a loot grant (`LootService` writes gold directly and nothing re-emitted `gold_changed`) | HIGH | `GameSession` listens to `loot.reward_granted` and re-emits `gold_changed`; the loop test asserts the label |
+| AC-28 cited `tests/integration/test_enemy_defeat_signal.gd`, which was never committed (it stayed untracked in the W3/W4 worktree); `tests/unit/world/test_spawn_marker.gd` was missing the same way | HIGH | both files restored and now run; the defeat test covers the negative half (no reward / no loot source id / second lethal hit) |
+| A crash between the two renames of `save()` left the previous save in `.bak` and nothing ever read it | MEDIUM | `load_snapshot()` promotes a leftover `.bak` and reports it as a warning; new save-manager test simulates the crash window |
+| `WorldRouter` was a second writer of session health | LOW | `GameSession.restore_full_health()` owns the write |
+| `GameSession.setup()` double-connected `inventory.changed` | LOW | guarded connections; a test asserts one notification per change |
+| The fallback status line printed the resolved spawn id twice | LOW | reworded; a successful travel now reports "Entered world at spawn" |
+| The content generator was not idempotent (it embedded the worlds instead of referencing them) | LOW | the generator loads the saved world `.tres` files; verified by hashing the manifest before/after a run |
+| Documentation drift (`WorldHost.configure` signature, `ContentManifest` comment, checklist counts) | INFO | corrected |
 
 ### Defects found and fixed during integration (evidence trail)
 
