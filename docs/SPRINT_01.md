@@ -16,11 +16,11 @@ assets (ADR-003).
 | ID | Deliverable | Owner | Declared file ownership | State |
 |----|-------------|-------|-------------------------|-------|
 | W0 | Bootstrap: git repo, `.gitignore`, `project.godot`, InputMap, physics layers, test seam, ADRs, sprint plan, first commit | `arpg-coordinator` (+`godot-specialist` for `project.godot`) | `.gitignore`, `project.godot`, `core/physics/physics_layers.gd`, `tools/setup_input_map.gd`, `tests/test_case.gd`, `tests/run_tests.gd`, `docs/**`, `README_SETUP.md` | done |
-| W1 | Combat domain: `DamageRequest`, `DamageResult`, `HitCandidate`, `MeleeRules`, `HitRegistry`, `AttackDefinition`, `HealthComponent` + unit tests | `gameplay-engineer` | `core/combat/**`, `systems/combat/attack_definition.gd`, `systems/combat/health_component.gd`, `tests/unit/combat/**` | planned |
-| W2 | `AttackController` + `HitDetector` + unit tests | `gameplay-engineer` | `systems/combat/attack_controller.gd`, `systems/combat/hit_detector.gd`, `tests/unit/combat/**` | planned |
-| W3 | Player rig: scene, walk/look, backpedal evasion, viewmodel placeholder, `attack_player_basic.tres` | `godot-specialist` | `actors/player/**` | planned |
-| W4 | Enemy rig: `EnemyFsm`, `EnemyDefinition`, scene, telegraph, damage reaction, death | `gameplay-engineer` | `systems/ai/**`, `actors/enemies/**`, `content/definitions/attack_enemy_basic.tres`, `content/definitions/enemy_grunt.tres` | planned |
-| W5 | Greybox arena scene + wiring + debug HUD | `godot-specialist` | `world/prototype/**`, `content/definitions/sprint01_arena*` (if any), one `main_scene` line in `project.godot` (single-writer) | planned |
+| W1 | Combat domain: `DamageRequest`, `DamageResult`, `HitCandidate`, `MeleeRules`, `HitRegistry`, `AttackDefinition`, `HealthComponent` + unit tests | `gameplay-engineer` | `core/combat/**`, `systems/combat/attack_definition.gd`, `systems/combat/health_component.gd`, `tests/unit/combat/**` | done (4183670) |
+| W2 | `AttackController` + `HitDetector` + unit tests | `gameplay-engineer` | `systems/combat/attack_controller.gd`, `systems/combat/hit_detector.gd`, `tests/unit/combat/**` | done (5274864) |
+| W3 | Player rig: scene, walk/look, backpedal evasion, viewmodel placeholder, `attack_player_basic.tres` | `godot-specialist` | `actors/player/**` | in progress (worktree `feat/w3-player`) |
+| W4 | Enemy rig: `EnemyFsm`, `EnemyDefinition`, scene, telegraph, damage reaction, death | `gameplay-engineer` | `systems/ai/**`, `actors/enemies/**`, `content/definitions/attack_enemy_basic.tres`, `content/definitions/enemy_grunt.tres` | done (772d6d7) |
+| W5 | Greybox arena scene + wiring + debug HUD | `godot-specialist` | `world/prototype/**`, `content/definitions/sprint01_arena*` (if any), one `main_scene` line in `project.godot` (single-writer) | in progress |
 | W6 | QA: integration tests, parser/import validation, scene boot smoke, runtime error check, manual checklist, evidence | `qa-engineer` | `tests/integration/**`, `tests/manual/**` | planned |
 | W7 | Independent review, CRITICAL/HIGH fixes, re-validation | `reviewer` (read-only) + coordinator fixes | fixes only in the owning files of the findings | planned |
 
@@ -40,7 +40,7 @@ W3 and W4 have disjoint file sets and may run in parallel in separate worktrees;
 | `AttackController` (Node) | `phase`, cooldown | `request_attack()`, `abort(reason)`, `advance(delta)`, signals `phase_changed(phase)`, `attack_resolved(result)`; one swing at a time; one hit query per swing |
 | `HitDetector` (Node3D) | none (stateless query) | `query_hits(definition, origin, exclude_rids)`, sphere-shape candidate gathering + world raycast occlusion; never applies damage |
 | `EnemyFsm` (pure) | none | `step(current, inputs, params) -> Decision`; states `IDLE/CHASE/ATTACK/DEAD`; DEAD terminal |
-| `EnemyBrain` (CharacterBody3D) | FSM state, velocity | adapter around `EnemyFsm`; calls `AttackController`; never touches player HP directly; presentation-only telegraph |
+| `EnemyBrain` (CharacterBody3D) | FSM state, velocity | adapter around `EnemyFsm`; calls `AttackController`; never touches player HP directly; presentation-only telegraph. Plants its feet while in ATTACK (`force_stop`) so the windup escape window actually exists; a retreating target is not a cancellation, it resolves as `out_of_reach` at the hit frame |
 | `PlayerController` (CharacterBody3D) | transform, pitch | walk/look/backpedal only (no jump/dash); forwards `attack_primary` to `AttackController` |
 | `PlayerViewModel` (Node3D) | viewmodel transform | reacts to `phase_changed`; removal must not change combat behaviour |
 
@@ -94,6 +94,10 @@ GODOT = "C:\Users\mikio\Desktop\Godot_v4.7.2-stable_win64_console.exe"
 ## Known constraints
 
 - Numbers (damage, reach, timings) are placeholders; balance is out of scope.
+- Escape window math: the enemy gate is `reach + hit_radius = 1.95 m` with a 0.7 s windup, so
+  leaving reach needs roughly 2.0 m of backpedal — the player's 4.0 m/s walk gives ~0.8 m of
+  margin. The enemy stops moving during ATTACK for this reason (`EnemyFsm` ATTACK rows set
+  `force_stop`”; recorded as a documented deviation from the first draft of the transition table).
 - No animation pipeline: phases are driven by code timing plus placeholder transforms (ADR-004).
-- Player death freezes input; restarting is a manual scene reset from the arena script (ADR-003).
+- Player death freezes input; restarting is the arena's `R` key (`ProtoArena._restart`).
 - Manual visual checks are recorded as NOT RUN when no graphical verification was performed.
