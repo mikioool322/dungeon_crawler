@@ -15,21 +15,23 @@ const TEST_CASE_PATH := "res://tests/test_case.gd"
 ## Directories `tests/run_tests.gd` discovers tests in (the discovery contract).
 const SCANNED_TEST_DIRS: Array[String] = ["res://tests/unit", "res://tests/integration"]
 
-## ADR-005 closed list: actions the project is allowed to define.
+## ADR-005 closed list (amended in Sprint 02): actions the project is allowed to define.
 const ADR_005_ACTIONS: Array[StringName] = [
 	&"move_forward",
 	&"move_back",
 	&"move_left",
 	&"move_right",
 	&"attack_primary",
+	&"interact",
 ]
 
-## ADR-005 physics layers: index -> the name `project.godot` must carry.
+## ADR-005 physics layers (amended in Sprint 02): index -> the name `project.godot` must carry.
 const EXPECTED_LAYER_NAMES: Dictionary = {
 	1: "world",
 	2: "player_body",
 	3: "enemy_body",
 	4: "hurtbox",
+	5: "interactable",
 }
 
 const MIN_SCRIPT_COUNT := 20

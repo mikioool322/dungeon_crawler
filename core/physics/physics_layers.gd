@@ -20,6 +20,10 @@ const ENEMY_BODY: int = 1 << 2  # layer 3
 ## Reserved for per-actor damage receivers. Unused in Sprint 01 (ADR-005).
 const HURTBOX: int = 1 << 3  # layer 4
 
+## Interaction targets (pickups, chests, portals, shrines). Area3D only: never damageable,
+## never a blocker, never part of a movement mask (ADR-005 addendum, ADR-008).
+const INTERACTABLE: int = 1 << 4  # layer 5
+
 
 ## Layers a body should collide with (movement collision, not hit queries).
 static func movement_mask(body_layer: int) -> int:

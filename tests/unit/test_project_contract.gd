@@ -9,6 +9,7 @@ const REQUIRED_ACTIONS: Array[StringName] = [
 	&"move_left",
 	&"move_right",
 	&"attack_primary",
+	&"interact",
 ]
 
 const EXPECTED_LAYER_NAMES: Dictionary = {
@@ -16,6 +17,7 @@ const EXPECTED_LAYER_NAMES: Dictionary = {
 	"3d_physics/layer_2": "player_body",
 	"3d_physics/layer_3": "enemy_body",
 	"3d_physics/layer_4": "hurtbox",
+	"3d_physics/layer_5": "interactable",
 }
 
 
@@ -47,6 +49,7 @@ func test_physics_layer_constants_match_named_layers() -> void:
 	assert_eq(PhysicsLayers.PLAYER_BODY, 1 << 1, "PLAYER_BODY must be layer 2")
 	assert_eq(PhysicsLayers.ENEMY_BODY, 1 << 2, "ENEMY_BODY must be layer 3")
 	assert_eq(PhysicsLayers.HURTBOX, 1 << 3, "HURTBOX must be layer 4")
+	assert_eq(PhysicsLayers.INTERACTABLE, 1 << 4, "INTERACTABLE must be layer 5")
 	assert_eq(
 		PhysicsLayers.movement_mask(PhysicsLayers.PLAYER_BODY),
 		PhysicsLayers.WORLD | PhysicsLayers.ENEMY_BODY,
@@ -56,4 +59,9 @@ func test_physics_layer_constants_match_named_layers() -> void:
 		PhysicsLayers.movement_mask(PhysicsLayers.ENEMY_BODY),
 		PhysicsLayers.WORLD | PhysicsLayers.PLAYER_BODY,
 		"enemy movement mask"
+	)
+	assert_eq(
+		PhysicsLayers.movement_mask(PhysicsLayers.PLAYER_BODY) & PhysicsLayers.INTERACTABLE,
+		0,
+		"interactables never block movement (ADR-008)"
 	)

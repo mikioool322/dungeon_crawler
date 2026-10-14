@@ -15,6 +15,7 @@ const KEY_ACTIONS: Dictionary = {
 	&"move_back": KEY_S,
 	&"move_left": KEY_A,
 	&"move_right": KEY_D,
+	&"interact": KEY_E,
 }
 
 const MOUSE_ACTIONS: Dictionary = {

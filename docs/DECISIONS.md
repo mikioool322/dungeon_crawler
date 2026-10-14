@@ -101,6 +101,14 @@ Decision:
   files (integrator only). Adding a layer or action requires updating this ADR.
 Consequences: Merge-safe bootstrapping; no silent drift of actions or layers.
 
+Addendum (Sprint 02): the closed lists are amended with layer 5 `interactable`
+(`PhysicsLayers.INTERACTABLE = 1 << 4`) and the action `interact` (physical E). Interactables are
+`Area3D`s: never damageable, never blockers, never part of any movement mask. Layers 1-4 and the five
+Sprint 01 actions keep their meaning. `tools/setup_input_map.gd` remains the generator of the action
+list; `tests/unit/test_project_contract.gd` and `tests/integration/test_project_scripts.gd` remain
+the lock. The single-writer rule (project.godot, physics_layers.gd, DECISIONS.md, setup_input_map.gd)
+is unchanged.
+
 ## ADR-006 — Test seams and multi-agent validation protocol
 Status: accepted (Sprint 01).
 Context: No git repository, no test addon and no CI existed before Sprint 01; several agents
@@ -118,3 +126,124 @@ Decision:
   pass. Commits require task authorization; no `git push` in Sprint 01.
 Consequences: Evidence-based merges with a small per-item overhead; CI can be added later
 without changing the contract.
+
+## ADR-007 — Session ownership, world routing, player lifecycle and respawn
+Status: accepted (Sprint 02).
+Context: Sprint 02 needs hub<->dungeon travel, HP/inventory continuity across a scene swap, save/load
+and a death outcome that cannot brick the run. ADR-001 forbids globals; `ARCHITECTURE.md` mandates
+one transition coordinator and explicit spawn IDs.
+Decision:
+- `GameSession` (`RefCounted`) is created and owned by the composition root `Main` (`world/main.tscn`,
+  the new main scene). No autoload, no service locator. `Main` never unloads; only the child of
+  `WorldRouter.world_slot` is swapped.
+- `PlayerSessionState` holds the durable run state (health, gold, inventory, world/spawn ids,
+  claimed reward keys) and never references a Node. Only `GameSession` and `LootService` write it.
+- `WorldRouter` is the only component that instantiates or frees a world or a player. Exactly one
+  player rig exists, as a child of the current world, recreated on every world load with the session
+  HP applied AFTER `add_child` (because `HealthComponent._ready()` resets to full).
+- Spawn coordinates live in `SpawnMarker` nodes inside world scenes; `WorldDefinition` carries the
+  world id, the scene and the default spawn id, never coordinates.
+- Travel is one synchronous prepare-then-swap: validate definition/scene/marker, build world+player,
+  add the new world, apply HP, then remove and free the old world in the same call. Any failure before
+  the swap frees the candidate and leaves the current world untouched. `request_travel` is
+  single-flight (`busy`) and clears the guard just before emitting `world_loaded`.
+- Enemies receive their target from the world host at `_ready` via `set_target`; combat and AI rules
+  are untouched.
+- Death/respawn: on the current player's `HealthComponent.died` the router travels to
+  `respawn_world_id` (`world.hub`) at its default spawn with full HP; inventory, gold and claimed keys
+  are preserved; HP is never captured from the dead rig. No in-place revive, no death penalty, no
+  corpse run, no checkpoint - the ordinary swap destroys the dead rig.
+Consequences: one lifecycle owner for worlds and actors; one durable state object for save/load;
+`world/prototype/proto_arena.tscn` stays the Sprint 01 regression fixture with its embedded player;
+standing position and world state are not persisted; threaded loading would break the synchronous
+swap assumption and needs a new decision.
+
+## ADR-008 — Interaction contract
+Status: accepted (Sprint 02).
+Context: pickups, a chest, a save shrine and portals need one small testable "walk up and press E"
+path without a dialogue/quest system and without coupling the general interaction system to loot.
+Decision:
+- `Interactable extends Area3D` (layer 5) with `prompt`, `enabled` and `one_shot`. `interact()` is
+  final and owns the guard/one-shot bookkeeping; subclasses only implement `_perform_interact()`.
+- `InteractionController` is a direct child of the player rig
+  (`InteractionController.find_on()` mirrors `HealthComponent.find_on()`), ray-queries once per
+  physics tick with mask `world|interactable` (walls occlude by construction), handles the `interact`
+  action in `_unhandled_input`, and emits `focus_changed` / `prompt_changed` / `interaction_resolved`.
+  At most one interaction per physics frame, synchronous, no awaits.
+- A dead interactor is detected via `HealthComponent.find_on(interactor).is_alive()`, so the
+  interaction system never imports `PlayerController`.
+- Services are injected per type by the world host:
+  `PortalInteractable.set_travel_provider(Callable)`,
+  `PickupInteractable/ChestInteractable.configure(reward, grant_key, LootService)`,
+  `SaveShrineInteractable.set_save_provider(Callable)`. `systems/interaction/**` never imports
+  `world/**`.
+Rejected: string-keyed action dispatch, a global interaction manager, portals importing `WorldRouter`,
+UI-driven prompts.
+Consequences: a new interactable kind is one subclass plus one host binding line; the base contract
+stays domain-free; layer 5 and `interact` are added to the ADR-005 closed list.
+
+## ADR-009 — Inventory, currency and loot idempotency
+Status: accepted (Sprint 02).
+Context: a reward must be collected exactly once despite duplicate signals, repeated interactions,
+save/load and re-entering a world; Sprint 02 excludes rarity, equipment slots, affixes and vendors.
+Decision:
+- `ItemDefinition` (id, display name, description, kind, stackable, max_stack, optional icon) and
+  `RewardDefinition` (id, optional item+count, gold) are immutable Resources.
+- `Inventory` is a pure counted bag with stack awareness: entries are filled up to
+  `ItemDefinition.max_stack`, non-stackable items always occupy their own entry; no slot cap.
+  Only its own methods mutate it; it validates ids through the passed definition.
+- Currency is `PlayerSessionState.gold`, never an inventory item.
+- `LootGrant` is the only transfer object and `LootService.grant()` the only loot entry point,
+  idempotent per `grant_key` recorded in the persisted `PlayerSessionState.claimed_reward_keys`.
+  Validation completes before the first mutation: a rejected grant neither mutates nor consumes the key.
+- `grant_key = LootGrant.key_for(world_id, loot_source_id)` = `"<world_id>/<loot_source_id>"`;
+  `loot_source_id` is authored per placement and is never a node name, display name or asset path.
+- Enemy death emits `defeated(reward, loot_source_id, position)`; the world host spawns the pickup
+  (unless the key is claimed) and combat never touches inventory. Save load rebuilds a fresh bag
+  instead of granting.
+Consequences: double loot is impossible by construction; drops are not persisted, so a claimed drop
+never reappears while an unclaimed one is gone after re-entering the world; per-placement reward
+overrides and stack/slot caps are deferred.
+
+## ADR-010 — Save format, atomic write and corruption policy
+Status: accepted (Sprint 02).
+Context: Sprint 02 must restore HP, inventory, gold and location after a relaunch without storing
+Nodes, and a corrupt or future save must never brick the boot.
+Decision:
+- One slot `user://save_slot0.json`, JSON object, `version: 1`: health, gold, items[{id,count}],
+  world_id, spawn_id, claimed_reward_keys[]. No Node or scene-path data.
+- `SaveSnapshot.to_dict()/from_dict()` is the only (de)serialisation point; `SaveManager` is
+  content-agnostic.
+- Atomic write: write `<path>.tmp` (flush+close) then rename the existing file to `<path>.bak`, rename
+  tmp to `<path>`, delete `.bak`. Any failure restores `.bak` and returns `IO_ERROR`; a partial file
+  never becomes the save.
+- Load policy: missing -> `MISSING` (new game); unreadable/unparseable/wrong shape -> best-effort
+  quarantine to `<path>.corrupt` and `CORRUPT`; `version > CURRENT_VERSION` -> `UNSUPPORTED_VERSION`;
+  `version < CURRENT` -> the `MIGRATIONS` chain (empty in Sprint 02; adding a table entry plus a
+  migration test is the extension point).
+- Semantic filtering happens in `GameSession.apply_snapshot`: unknown item ids, claimed keys and
+  invalid world ids are dropped with warnings; `health <= 0` becomes full HP; a missing spawn id falls
+  back to the world default.
+- Saving is explicit in-world (the hub shrine calls `GameSession.save_now()`); loading happens at
+  boot. No autosave, no save-on-quit, no keybinds.
+Consequences: corruption or a future version degrades to a new game with a diagnostic instead of a
+crash; the DTO stays inspectable JSON; multiple slots and world-state persistence are deferred.
+
+## ADR-011 — Content registry, manifest and id stability
+Status: accepted (Sprint 02).
+Context: portals, save restore, loot and the HUD resolve content by stable id, and the project has
+loose `.tres` files with no duplicate detection.
+Decision:
+- An explicit `content/definitions/content_manifest.tres` lists attacks, enemies, items, rewards and
+  worlds. `ContentRegistry.build(manifest)` builds typed id->resource maps and reports duplicate ids,
+  empty ids, null/invalid entries and unresolved cross-references as data (`errors`, `is_valid()`);
+  a bad manifest degrades to missing lookups plus a diagnostic, never a crash.
+- Gameplay resolves ids through the registry; ids are authored literals (`world.*`, `spawn.*`,
+  `item.*`, `reward.*`, `enemy.*`, `attack.*`), never node names, display names or asset paths.
+- An integration test validates the shipped manifest: uniqueness, cross-references, portal targets,
+  default spawn ids and loot source ids.
+Rejected: runtime folder scanning as the lookup path (non-deterministic order, no duplicate
+detection), id derivation from names or paths.
+Consequences: content drift fails tests instead of surfacing as a runtime miss; adding content is a
+deliberate manifest edit; hot reload and an editor validator are deferred.
+
