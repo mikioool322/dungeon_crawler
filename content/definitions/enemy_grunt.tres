@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://systems/ai/enemy_definition.gd" id="1_enemy_definition"]
+[ext_resource type="Resource" path="res://content/definitions/attack_enemy_basic.tres" id="2_attack_definition"]
+
+[resource]
+script = ExtResource("1_enemy_definition")
+id = &"enemy.grunt"
+max_health = 100.0
+move_speed = 3.2
+detection_radius = 12.0
+lose_radius = 16.0
+attack_range = 1.8
+stop_distance = 1.5
+attack_definition = ExtResource("2_attack_definition")

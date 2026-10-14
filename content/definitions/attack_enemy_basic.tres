@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AttackDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://systems/combat/attack_definition.gd" id="1_attack_definition"]
+
+[resource]
+script = ExtResource("1_attack_definition")
+id = &"attack.enemy.basic"
+damage = 12.0
+reach = 1.7
+hit_radius = 0.25
+hit_arc_degrees = 60.0
+windup = 0.7
+active_window = 0.15
+recovery = 0.9
+cooldown = 1.9
