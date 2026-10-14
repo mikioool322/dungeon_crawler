@@ -5,6 +5,8 @@ extends "res://tests/test_case.gd"
 
 func _make_health(max_health: float) -> HealthComponent:
 	var health := HealthComponent.new()
+	# Attached to the tree so the test runner frees it afterwards (no leaked Nodes).
+	add_to_tree(health)
 	health.max_health = max_health
 	health.actor_id = &"test.dummy"
 	health.reset()

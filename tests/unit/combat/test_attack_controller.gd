@@ -40,13 +40,19 @@ func _make_controller(definition: AttackDefinition) -> AttackController:
 	controller.definition = definition
 	controller.source_id = &"player"
 	controller.auto_tick = false
+	# Added to the tree so the runner frees it after the test (no leaked Nodes) and
+	# so Node3D transforms are valid inside the tree.
+	add_to_tree(controller)
 	return controller
 
 
 func _make_controller_with_detector(definition: AttackDefinition) -> Array:
 	var controller := _make_controller(definition)
-	controller.hit_origin = Node3D.new()
+	var origin := Node3D.new()
+	add_to_tree(origin)
+	controller.hit_origin = origin
 	var spy := SpyDetector.new()
+	add_to_tree(spy)
 	controller.hit_detector = spy
 	return [controller, spy]
 
