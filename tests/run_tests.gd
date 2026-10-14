@@ -50,6 +50,9 @@ func _run_file(path: String) -> void:
 	if script == null:
 		_register_file_error(path, "script failed to load")
 		return
+	if not script.can_instantiate():
+		_register_file_error(path, "script has parse errors (run the editor import step)")
+		return
 	var instance: Object = script.new()
 	if instance == null or not instance.has_method("assert_true"):
 		_register_file_error(path, "does not extend res://tests/test_case.gd")
