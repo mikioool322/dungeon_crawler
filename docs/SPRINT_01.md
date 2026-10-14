@@ -20,8 +20,8 @@ assets (ADR-003).
 | W2 | `AttackController` + `HitDetector` + unit tests | `gameplay-engineer` | `systems/combat/attack_controller.gd`, `systems/combat/hit_detector.gd`, `tests/unit/combat/**` | done (5274864) |
 | W3 | Player rig: scene, walk/look, backpedal evasion, viewmodel placeholder, `attack_player_basic.tres` | `godot-specialist` | `actors/player/**` | in progress (worktree `feat/w3-player`) |
 | W4 | Enemy rig: `EnemyFsm`, `EnemyDefinition`, scene, telegraph, damage reaction, death | `gameplay-engineer` | `systems/ai/**`, `actors/enemies/**`, `content/definitions/attack_enemy_basic.tres`, `content/definitions/enemy_grunt.tres` | done (772d6d7) |
-| W5 | Greybox arena scene + wiring + debug HUD | `godot-specialist` | `world/prototype/**`, `content/definitions/sprint01_arena*` (if any), one `main_scene` line in `project.godot` (single-writer) | in progress |
-| W6 | QA: integration tests, parser/import validation, scene boot smoke, runtime error check, manual checklist, evidence | `qa-engineer` | `tests/integration/**`, `tests/manual/**` | planned |
+| W5 | Greybox arena scene + wiring + debug HUD | `godot-specialist` | `world/prototype/**`, `content/definitions/sprint01_arena*` (if any), one `main_scene` line in `project.godot` (single-writer) | done (135f717) |
+| W6 | QA: integration tests, parser/import validation, scene boot smoke, runtime error check, manual checklist, evidence | `qa-engineer` | `tests/integration/**`, `tests/manual/**` | in progress (branch `feat/w6-qa`) |
 | W7 | Independent review, CRITICAL/HIGH fixes, re-validation | `reviewer` (read-only) + coordinator fixes | fixes only in the owning files of the findings | planned |
 
 W3 and W4 have disjoint file sets and may run in parallel in separate worktrees; W5 requires both merged.
