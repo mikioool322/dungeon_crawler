@@ -349,15 +349,24 @@ const INTERACTABLE: int = 1 << 4      # layer 5; never part of movement_mask()
 
 | ID | Deliverable | Owner | Files (single writer) | Depends on | State |
 |----|-------------|-------|-----------------------|-----------|-------|
-| W0 | Contract freeze: ADR-005 addendum + ADR-007..011, layer 5, `interact`, lock tests, this doc | coordinator | `docs/**`, `core/physics/physics_layers.gd`, `tools/setup_input_map.gd`, `project.godot` (`[input]`/`[layer_names]`), `tests/unit/test_project_contract.gd`, `tests/integration/test_project_scripts.gd` | — | done |
-| W1a | Pure domain: definitions, inventory, session state, loot | `gameplay-engineer` | `core/content/{item_definition,reward_definition,world_definition}.gd`, `core/inventory/**`, `core/session/**`, `systems/loot/**`, `tests/unit/{inventory,session,loot}/**` | W0 | planned |
-| W1b | Save + content registry + `HealthComponent.restore()` | `gameplay-engineer` | `systems/content/**`, `systems/save/**`, `systems/combat/health_component.gd` (one added method), `tests/unit/{content,save}/**`, `tests/unit/combat/test_health_component_restore.gd` | W0 | planned |
-| W2 | Interaction system + ray integration test | `godot-specialist` | `systems/interaction/**`, `tests/unit/interaction/**`, `tests/integration/test_interaction_ray.gd` | W1a, W1b | planned |
-| W3 | Actor seams: `defeated` signal + reward authoring; player rig interaction child | coordinator | `actors/enemies/enemy_brain.gd`, `content/definitions/enemy_grunt.tres`, `actors/player/player.tscn`, `tests/integration/test_enemy_defeat_signal.gd` | W1a, W2 | planned |
-| W4 | Worlds, router, host, HUD, content data, bootstrap | coordinator | `world/**`, `presentation/hud/**`, `content/definitions/{item_*,reward_*,world_*,content_manifest}.tres`, `tests/integration/{test_main_boot,test_world_scenes,test_content_graph}.gd` | W1a, W1b, W2, W3 | planned |
-| I1 | Integration: `main_scene` → `world/main.tscn`, move the stale main-scene assertion, full validation | coordinator | `project.godot` (one line), `tests/integration/test_arena_boot.gd` (main-scene test only) | W4 | planned |
-| W5 | QA: end-to-end loop, save round trip, respawn, manual checklist, runtime-error log, evidence | `qa-engineer` | `tests/integration/{test_sprint02_loop,test_save_round_trip,test_death_respawn}.gd`, `tests/manual/sprint02_checklist.md` | I1 | planned |
+| W0 | Contract freeze: ADR-005 addendum + ADR-007..011, layer 5, `interact`, lock tests, this doc | coordinator | `docs/**`, `core/physics/physics_layers.gd`, `tools/setup_input_map.gd`, `project.godot` (`[input]`/`[layer_names]`), `tests/unit/test_project_contract.gd`, `tests/integration/test_project_scripts.gd` | — | done (6f763eb) |
+| W1a | Pure domain: definitions, inventory, session state, loot | `gameplay-engineer` | `core/content/{item_definition,reward_definition,world_definition}.gd`, `core/inventory/**`, `core/session/**`, `systems/loot/**`, `tests/unit/{inventory,session,loot}/**` | W0 | done (0a20168) |
+| W1b | Save + content registry + `HealthComponent.restore()` | `gameplay-engineer` | `systems/content/**`, `systems/save/**`, `systems/combat/health_component.gd` (one added method), `tests/unit/{content,save}/**`, `tests/unit/combat/test_health_component_restore.gd` | W0 | done (00878bb) |
+| W2 | Interaction system + ray integration test | `godot-specialist` | `systems/interaction/**`, `tests/unit/interaction/**`, `tests/integration/test_interaction_ray.gd` | W1a, W1b | done (74cb48a) |
+| W3 | Actor seams: `defeated` signal + reward authoring; player rig interaction child | coordinator | `actors/enemies/enemy_brain.gd`, `content/definitions/enemy_grunt.tres`, `actors/player/player.tscn`, `tests/integration/test_enemy_defeat_signal.gd` | W1a, W2 | done (c261544, 1f34fc4) |
+| W4 | Worlds, router, host, HUD, content data, bootstrap | coordinator | `world/**`, `presentation/hud/**`, `content/definitions/{item_*,reward_*,world_*,content_manifest}.tres`, `tests/integration/{test_main_boot,test_world_scenes,test_content_graph}.gd` | W1a, W1b, W2, W3 | done (c261544, 1f34fc4) |
+| I1 | Integration: `main_scene` → `world/main.tscn`, move the stale main-scene assertion, full validation | coordinator | `project.godot` (one line), `tests/integration/test_arena_boot.gd` (main-scene test only) | W4 | done (1f34fc4) |
+| W5 | QA: end-to-end loop, save round trip, respawn, manual checklist, runtime-error log, evidence | `qa-engineer` | `tests/integration/{test_sprint02_loop,test_save_round_trip,test_death_respawn}.gd`, `tests/manual/sprint02_checklist.md` | I1 | in progress (branch `feat/s02-qa`) |
 | W6 | Independent review + fixes + re-validation | `reviewer` (read-only) + coordinator | fixes only in the owning files | W5 | planned |
+
+### Defects found and fixed during integration (evidence trail)
+
+| Defect | Found by | Fix |
+|--------|----------|-----|
+| The router resolved the spawn marker **before** injecting the world default spawn id, so an empty request fell through to the alphabetical fallback (the player spawned 17 m away at the portal marker) | `test_main_boot.gd` | inject services + `default_spawn_id` before `resolve_spawn()` (`world_router.gd`) |
+| `main.tscn` declared the `player_scene` PackedScene export in `node_paths`, which silently left it null and aborted every boot with "player_scene is not assigned" | `test_main_boot.gd` | removed the bogus `node_paths` entry |
+| `WorldHost.PLAYER_NODE_NAME` was a `StringName`, and Godot 4.7 rejects `StringName` in `get_node_or_null()` (compile error in the HUD's dependency chain) | suite | constant is a `String`, like `HealthComponent.NODE_NAME` |
+| Deferred typing from W1a/W1b: `Object`/`Variant` contracts and duck-typed registry stubs | coordinator (contract review) | typed arrays, concrete kind checks, typed lookups, real registries in tests |
 
 Sprint 01 files that must stay untouched: all of `systems/combat/*` except the one added method,
 `systems/ai/**`, `actors/player/player_controller.gd`, `world/prototype/**`, and every Sprint 01 test
