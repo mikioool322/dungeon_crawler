@@ -351,6 +351,10 @@ func test_full_loop_hub_to_dungeon_loot_return_save_and_reload() -> void:
 	assert_eq(_grants.get(GRUNT_KEY, 0), 1, "reward_granted fired exactly once for the drop key")
 	assert_true(_main.session.state.is_claimed(GRUNT_KEY), "the drop key is recorded as claimed")
 	assert_false(is_instance_valid(pickup), "the pickup is consumed after the grant")
+	assert_true(
+		_main.hud.gold_label.text.contains(str(GRUNT_GOLD)),
+		"the HUD gold label follows a loot grant, got '%s'" % _main.hud.gold_label.text
+	)
 
 	var second := controller.try_interact()
 	assert_false(second.succeeded(), "a second interact on the gone drop is refused")

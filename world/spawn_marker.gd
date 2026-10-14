@@ -30,10 +30,13 @@ static func choose(
 	return ordered[0]
 
 
-## True when `requested` could not be satisfied and a fallback was used.
+## True when `requested` could not be satisfied and a fallback was used. An empty
+## request means "the world default" and is never reported as a fallback (ADR-007).
 static func used_fallback(
 	markers: Array[SpawnMarker], requested: StringName, default_id: StringName
 ) -> bool:
+	if requested == &"":
+		return false
 	var chosen := choose(markers, requested, default_id)
 	return chosen == null or chosen.spawn_id != requested
 

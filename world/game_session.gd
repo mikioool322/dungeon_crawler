@@ -35,7 +35,10 @@ func setup(registry: ContentRegistry, save_manager: SaveManager) -> void:
 	_registry = registry
 	_save_manager = save_manager
 	loot.setup(state, registry)
-	state.inventory.changed.connect(_on_inventory_changed)
+	if not state.inventory.changed.is_connected(_on_inventory_changed):
+		state.inventory.changed.connect(_on_inventory_changed)
+	if not loot.reward_granted.is_connected(_on_reward_granted):
+		loot.reward_granted.connect(_on_reward_granted)
 
 
 func registry() -> ContentRegistry:
@@ -130,6 +133,12 @@ func add_gold(amount: int) -> int:
 	return state.gold
 
 
+## Full health for the next life. Used by the router's death path (ADR-007) so the
+## durable-state write stays in this class.
+func restore_full_health() -> void:
+	state.health = DEFAULT_MAX_HEALTH
+
+
 func to_snapshot() -> SaveSnapshot:
 	var snapshot := SaveSnapshot.new()
 	snapshot.version = SaveSnapshot.CURRENT_VERSION
@@ -217,3 +226,9 @@ func _is_known_reward_key(key: StringName) -> bool:
 
 func _on_inventory_changed() -> void:
 	inventory_changed.emit()
+
+
+## `LootService` writes gold directly; re-emit so every listener (the HUD included)
+## observes the "gold changed" contract instead of having to know about loot.
+func _on_reward_granted(_grant: LootGrant, gold_total: int) -> void:
+	gold_changed.emit(gold_total)

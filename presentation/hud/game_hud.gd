@@ -175,8 +175,12 @@ func _on_player_spawned(player: PlayerController) -> void:
 
 func _on_world_loaded(world_id: StringName, spawn_id: StringName, used_fallback: bool) -> void:
 	_refresh_world()
+	_refresh_gold()
+	_refresh_inventory()
 	if used_fallback:
-		set_status("Spawn '%s' missing; used '%s' in %s" % [spawn_id, spawn_id, world_id])
+		set_status("Requested spawn was missing; used '%s' in %s" % [spawn_id, world_id])
+	else:
+		set_status("Entered %s at %s" % [world_id, spawn_id])
 
 
 func _on_world_load_failed(world_id: StringName, code: StringName) -> void:

@@ -8,11 +8,10 @@ extends Resource
 ##   authoring problem as `errors`; nothing here scans folders or deduplicates.
 ## - Content is referenced by stable ids; an entry that is not listed here is not
 ##   resolvable at runtime.
-## - Sprint 02 dependency note (W1b): `ItemDefinition`, `RewardDefinition` and
-##   `WorldDefinition` are W1a deliverables and are not part of this branch yet, so
-##   their arrays are typed `Array[Resource]` and validated by member surface at
-##   runtime. Retype them to the concrete classes when W1a is merged (one line each,
-##   no call-site impact) and re-save the `.tres` so the stored array types match.
+## - Every bucket is typed to its concrete definition class, so a wrong-kind entry
+##   cannot even be stored; `ContentRegistry` re-checks the kind as defence in depth.
+## - `tools/generate_content_manifest.gd` is the source of truth for this resource:
+##   add content there and re-run it instead of hand-editing the `.tres`.
 
 ## Attack definitions, indexed by `AttackDefinition.id`.
 @export var attacks: Array[AttackDefinition] = []

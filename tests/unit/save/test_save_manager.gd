@@ -59,6 +59,28 @@ func _write_raw(text: String) -> void:
 	_write_raw_to(_path, text)
 
 
+func test_a_leftover_backup_is_recovered_when_the_main_file_is_gone() -> void:
+	## A crash between the two renames of `save()` leaves the previous save in `.bak`
+	## and no main file. The next boot must recover it instead of starting a new game.
+	var first := _manager.save(_snapshot(55.0, 12))
+	assert_true(first.ok(), "the first save succeeds")
+	var backup_error := DirAccess.rename_absolute(_path, _path + BACKUP_SUFFIX)
+	assert_eq(backup_error, OK, "the test simulates the crash window")
+	assert_false(FileAccess.file_exists(_path), "no main file remains")
+
+	var recovered := _manager.load_snapshot()
+	assert_true(recovered.ok(), "the backup is recovered: %s" % recovered.message)
+	assert_true(
+		recovered.warnings.size() >= 1,
+		"and the recovery is reported as a warning: %s" % recovered.warnings
+	)
+	if recovered.snapshot != null:
+		assert_eq(recovered.snapshot.gold, 12, "the recovered snapshot carries the old gold")
+		assert_eq(recovered.snapshot.health, 55.0, "and the old health")
+	assert_true(FileAccess.file_exists(_path), "the promoted file is the new main save")
+	assert_false(FileAccess.file_exists(_path + BACKUP_SUFFIX), "and the backup is gone")
+
+
 func test_save_then_load_returns_an_equal_snapshot() -> void:
 	var saved := _snapshot(63.5, 9)
 	var save_result := _manager.save(saved)

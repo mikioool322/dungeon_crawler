@@ -13,22 +13,8 @@
 [ext_resource type="Resource" path="res://content/definitions/reward_chest_proto01.tres" id="11_dd8gp"]
 [ext_resource type="Script" path="res://systems/content/content_manifest.gd" id="12_c6dvn"]
 [ext_resource type="Script" path="res://core/content/world_definition.gd" id="13_xip28"]
-[ext_resource type="PackedScene" path="res://world/hub/hub.tscn" id="14_nnk3r"]
-[ext_resource type="PackedScene" path="res://world/dungeons/dungeon_proto01.tscn" id="15_0ixah"]
-
-[sub_resource type="Resource" id="Resource_mn74w"]
-script = ExtResource("13_xip28")
-id = &"world.hub"
-display_name = "Hub"
-scene = ExtResource("14_nnk3r")
-default_spawn_id = &"spawn.hub.start"
-
-[sub_resource type="Resource" id="Resource_mdfbh"]
-script = ExtResource("13_xip28")
-id = &"world.dungeon.proto01"
-display_name = "Proto Dungeon"
-scene = ExtResource("15_0ixah")
-default_spawn_id = &"spawn.dungeon.entry"
+[ext_resource type="Resource" path="res://content/definitions/world_hub.tres" id="14_nnk3r"]
+[ext_resource type="Resource" path="res://content/definitions/world_dungeon_proto01.tres" id="15_0ixah"]
 
 [resource]
 script = ExtResource("12_c6dvn")
@@ -36,4 +22,4 @@ attacks = Array[ExtResource("1_vxh2m")]([ExtResource("2_04t3b"), ExtResource("3_
 enemies = Array[ExtResource("4_dtutd")]([ExtResource("5_8f37a")])
 items = Array[ExtResource("6_8rwbh")]([ExtResource("7_7b7cb"), ExtResource("8_ug3py")])
 rewards = Array[ExtResource("9_5npqu")]([ExtResource("10_0hl0v"), ExtResource("11_dd8gp")])
-worlds = Array[ExtResource("13_xip28")]([SubResource("Resource_mn74w"), SubResource("Resource_mdfbh")])
+worlds = Array[ExtResource("13_xip28")]([ExtResource("14_nnk3r"), ExtResource("15_0ixah")])

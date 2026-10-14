@@ -57,8 +57,11 @@ func _generate() -> void:
 	manifest.rewards = rewards
 
 	var worlds: Array[WorldDefinition] = []
-	worlds.append(hub)
-	worlds.append(dungeon)
+	# Load the saved world definitions back so the manifest references the loose .tres
+	# files (ExtResource) instead of embedding a second inline copy: re-running this
+	# tool must be idempotent.
+	worlds.append(load(WORLD_HUB) as WorldDefinition)
+	worlds.append(load(WORLD_DUNGEON) as WorldDefinition)
 	manifest.worlds = worlds
 
 	failed += _save(manifest, MANIFEST)

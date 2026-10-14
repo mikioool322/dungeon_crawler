@@ -155,7 +155,9 @@ func _perform_travel(
 		_free_instance(instance)
 		return {"code": CODE_INVALID_SPAWN}
 	var resolved_spawn: StringName = marker.spawn_id
-	var used_fallback: bool = spawn_id != &"" and resolved_spawn != spawn_id
+	var used_fallback: bool = SpawnMarker.used_fallback(
+		next_world.spawn_markers(), spawn_id, definition.default_spawn_id
+	)
 
 	var player := _build_player(marker)
 	if player == null:
@@ -230,9 +232,7 @@ func _connect_player_death(player: PlayerController) -> void:
 func _on_player_died(_request: DamageRequest, player: PlayerController) -> void:
 	if player == null or not is_instance_valid(player) or player != _player:
 		return
-	var health := HealthComponent.find_on(player)
-	if health != null:
-		_session.state.health = health.max_health
+	_session.restore_full_health()
 	_travel(respawn_world_id, &"", false)
 
 

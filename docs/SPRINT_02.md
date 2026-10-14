@@ -281,12 +281,15 @@ static func choose(markers: Array, requested: StringName, default_id: StringName
 # requested -> default -> first by name -> null
 
 class_name WorldHost extends Node3D                   # world/world_host.gd
-const PLAYER_NODE_NAME := &"Player"
+const PLAYER_NODE_NAME := "Player"
 @export var world_id: StringName = &""
 @export var loot_pickup_scene: PackedScene = null
-func configure(session: GameSession, registry: ContentRegistry, travel: Callable, save: Callable) -> void
+func configure(session: GameSession, registry: ContentRegistry, travel: Callable, save: Callable,
+               default_spawn_id: StringName = &"") -> void
 func resolve_spawn(spawn_id: StringName) -> SpawnMarker
 func spawn_markers() -> Array[SpawnMarker]
+func has_context() -> bool
+func current_player() -> Node3D
 # _ready: bind portals (set travel provider), chests/pickups (configure with LootGrant.key_for),
 #         shrine (set save provider), enemies (set_target(player)); on EnemyBrain.defeated spawn the
 #         pickup unless the key is claimed. Missing context => push_warning, never push_error.

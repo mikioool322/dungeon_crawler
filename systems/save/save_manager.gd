@@ -101,30 +101,58 @@ func load_snapshot() -> SaveResult:
 	var result := SaveResult.new()
 
 	if not FileAccess.file_exists(_path):
+		# A crash between the two renames of `save()` leaves the previous save in
+		# `.bak` and no main file. Recover it instead of silently starting over.
+		if _recover_backup(result):
+			return _read_snapshot_file(result)
 		result.status = SaveResult.Status.MISSING
 		result.message = "no save file at %s" % _path
 		return result
 
+	return _read_snapshot_file(result)
+
+
+## Promotes a leftover `.bak` to the main path. Returns false when there is nothing
+## to recover.
+func _recover_backup(result: SaveResult) -> bool:
+	var bak_path := _path + BACKUP_SUFFIX
+	if not FileAccess.file_exists(bak_path):
+		return false
+	var promote_error := DirAccess.rename_absolute(bak_path, _path)
+	if promote_error != OK:
+		result.warnings.append("could not recover %s (error %d)" % [bak_path, promote_error])
+		return false
+	result.warnings.append("recovered the previous save from %s" % bak_path)
+	return true
+
+
+## Reads and validates the file at `_path`, filling `result` in place.
+func _read_snapshot_file(result: SaveResult) -> SaveResult:
 	var file := FileAccess.open(_path, FileAccess.READ)
 	if file == null:
-		return _corrupt_result("unreadable (error %d)" % FileAccess.get_open_error())
+		return _with_warnings(_corrupt_result("unreadable (error %d)" % FileAccess.get_open_error()), result)
 	var text := file.get_as_text()
 	file.close()
 	if text.strip_edges().is_empty():
-		return _corrupt_result("the file is empty")
+		return _with_warnings(_corrupt_result("the file is empty"), result)
 
 	var json := JSON.new()
 	if json.parse(text) != OK:
-		return _corrupt_result(
-			"invalid JSON at line %d: %s" % [json.get_error_line(), json.get_error_message()]
+		return _with_warnings(
+			_corrupt_result(
+				"invalid JSON at line %d: %s" % [json.get_error_line(), json.get_error_message()]
+			),
+			result
 		)
 	if not json.data is Dictionary:
-		return _corrupt_result("the root is not a JSON object")
+		return _with_warnings(_corrupt_result("the root is not a JSON object"), result)
 
 	var data: Dictionary = json.data
 	var raw_version: Variant = SaveSnapshot.version_of(data)
 	if raw_version == null:
-		return _corrupt_result("the version field is missing or is not an integer")
+		return _with_warnings(
+			_corrupt_result("the version field is missing or is not an integer"), result
+		)
 	var version: int = raw_version
 
 	# Gate before anything else touches the data: a newer save must survive intact.
@@ -138,21 +166,31 @@ func load_snapshot() -> SaveResult:
 	if version < SaveSnapshot.CURRENT_VERSION:
 		var migrated: Variant = _migrate(data, version)
 		if migrated == null:
-			return _corrupt_result(
-				"no migration path from version %d to %d" % [
-					version, SaveSnapshot.CURRENT_VERSION
-				]
+			return _with_warnings(
+				_corrupt_result(
+					"no migration path from version %d to %d" % [
+						version, SaveSnapshot.CURRENT_VERSION
+					]
+				),
+				result
 			)
 		data = migrated
 
 	var snapshot := SaveSnapshot.from_dict(data)
 	if snapshot == null:
-		return _unusable_shape_result()
+		return _with_warnings(_unusable_shape_result(), result)
 
 	result.status = SaveResult.Status.OK
 	result.snapshot = snapshot
 	result.message = "loaded %s (version %d)" % [_path, version]
 	return result
+
+
+## Carries recovery warnings onto a freshly built result (a corrupt file must not
+## hide that a backup was promoted first).
+func _with_warnings(target: SaveResult, source: SaveResult) -> SaveResult:
+	target.warnings = source.warnings
+	return target
 
 
 # --- migration ----------------------------------------------------------------

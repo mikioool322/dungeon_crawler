@@ -44,9 +44,13 @@ func _ready() -> void:
 
 	if hud != null:
 		hud.bind(session, router, registry)
-		hud.set_status(boot_message(boot_result))
 
 	router.bootstrap(session.state.world_id, session.state.spawn_id)
+
+	# After the bootstrap so the boot outcome (new game / loaded / corrupt) is what the
+	# player sees first, instead of the "Entered world..." travel line.
+	if hud != null:
+		hud.set_status(boot_message(boot_result))
 
 
 ## Human-readable boot outcome for the HUD (never parsed for logic).
