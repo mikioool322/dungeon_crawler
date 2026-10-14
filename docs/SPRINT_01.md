@@ -18,11 +18,11 @@ assets (ADR-003).
 | W0 | Bootstrap: git repo, `.gitignore`, `project.godot`, InputMap, physics layers, test seam, ADRs, sprint plan, first commit | `arpg-coordinator` (+`godot-specialist` for `project.godot`) | `.gitignore`, `project.godot`, `core/physics/physics_layers.gd`, `tools/setup_input_map.gd`, `tests/test_case.gd`, `tests/run_tests.gd`, `docs/**`, `README_SETUP.md` | done |
 | W1 | Combat domain: `DamageRequest`, `DamageResult`, `HitCandidate`, `MeleeRules`, `HitRegistry`, `AttackDefinition`, `HealthComponent` + unit tests | `gameplay-engineer` | `core/combat/**`, `systems/combat/attack_definition.gd`, `systems/combat/health_component.gd`, `tests/unit/combat/**` | done (4183670) |
 | W2 | `AttackController` + `HitDetector` + unit tests | `gameplay-engineer` | `systems/combat/attack_controller.gd`, `systems/combat/hit_detector.gd`, `tests/unit/combat/**` | done (5274864) |
-| W3 | Player rig: scene, walk/look, backpedal evasion, viewmodel placeholder, `attack_player_basic.tres` | `godot-specialist` | `actors/player/**` | in progress (worktree `feat/w3-player`) |
+| W3 | Player rig: scene, walk/look, backpedal evasion, viewmodel placeholder, `attack_player_basic.tres` | `godot-specialist` | `actors/player/**` | done (12c4748, merged 37053f4) |
 | W4 | Enemy rig: `EnemyFsm`, `EnemyDefinition`, scene, telegraph, damage reaction, death | `gameplay-engineer` | `systems/ai/**`, `actors/enemies/**`, `content/definitions/attack_enemy_basic.tres`, `content/definitions/enemy_grunt.tres` | done (772d6d7) |
 | W5 | Greybox arena scene + wiring + debug HUD | `godot-specialist` | `world/prototype/**`, `content/definitions/sprint01_arena*` (if any), one `main_scene` line in `project.godot` (single-writer) | done (135f717) |
-| W6 | QA: integration tests, parser/import validation, scene boot smoke, runtime error check, manual checklist, evidence | `qa-engineer` | `tests/integration/**`, `tests/manual/**` | in progress (branch `feat/w6-qa`) |
-| W7 | Independent review, CRITICAL/HIGH fixes, re-validation | `reviewer` (read-only) + coordinator fixes | fixes only in the owning files of the findings | planned |
+| W6 | QA: integration tests, parser/import validation, scene boot smoke, runtime error check, manual checklist, evidence | `qa-engineer` | `tests/integration/**`, `tests/manual/**` | done (84c11f7; manual checks NOT RUN) |
+| W7 | Independent review, CRITICAL/HIGH fixes, re-validation | `reviewer` (read-only) + coordinator fixes | fixes only in the owning files of the findings | in progress |
 
 W3 and W4 have disjoint file sets and may run in parallel in separate worktrees; W5 requires both merged.
 `project.godot`, `core/physics/physics_layers.gd` and `docs/DECISIONS.md` are single-writer (ADR-005).
@@ -88,7 +88,9 @@ GODOT = "C:\Users\mikio\Desktop\Godot_v4.7.2-stable_win64_console.exe"
 5. Backpedaling away from the start of WINDUP avoids all damage.
 6. Killing the enemy stops it, with no further attacks.
 7. A pillar blocks melee attacks (no damage through geometry).
-8. Breaking line of sight / distance returns the enemy to IDLE.
+8. Breaking line of sight (stepping behind a pillar) makes the enemy stop attacking and close in;
+   walking beyond the lose radius (16 m) or the target dying/vanishing returns it to IDLE and stops it.
+   Note: losing line of sight alone does **not** make the enemy give up (see Known constraints).
 9. No runtime errors in the Godot Output panel during a ~2 minute session.
 
 ## Known constraints
@@ -97,7 +99,16 @@ GODOT = "C:\Users\mikio\Desktop\Godot_v4.7.2-stable_win64_console.exe"
 - Escape window math: the enemy gate is `reach + hit_radius = 1.95 m` with a 0.7 s windup, so
   leaving reach needs roughly 2.0 m of backpedal — the player's 4.0 m/s walk gives ~0.8 m of
   margin. The enemy stops moving during ATTACK for this reason (`EnemyFsm` ATTACK rows set
-  `force_stop`”; recorded as a documented deviation from the first draft of the transition table).
+  `force_stop`; recorded as a documented deviation from the first draft of the transition table).
+- Losing line of sight alone does NOT make a chasing enemy give up: LOS gates detection and
+  starting a swing, but CHASE only exits on target loss, target death or `lose_radius`. An
+  LOS-timeout give-up is a new FSM row and needs its own decision record (deferred, not a bug).
+- Range is measured horizontally (ADR-004 addendum); the first multi-floor layout must revisit it.
+- `HitDetector.max_candidates` caps gathered contacts at 8 without a nearest-first guarantee, so a
+  future crowded room could drop the nearest target; no shipped scenario exceeds two targets.
+- `DamageRequest.hit_normal` is a placeholder (`Vector3.UP`) until a real surface normal is queried.
+- In-place revive is not supported: `HealthComponent.reset()` is for scene restarts and tests, and
+  the enemy FSM keeps DEAD terminal. Restarting the fight means reloading the arena (`R`).
 - No animation pipeline: phases are driven by code timing plus placeholder transforms (ADR-004).
 - Player death freezes input; restarting is the arena's `R` key (`ProtoArena._restart`).
 - Manual visual checks are recorded as NOT RUN when no graphical verification was performed.

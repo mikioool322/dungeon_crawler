@@ -67,13 +67,16 @@ var _flash_remaining: float = 0.0
 
 func _ready() -> void:
 	_params = EnemyFsm.Params.from_definition(definition)
+	# Death consequences are wired unconditionally: an enemy must never end up
+	# damageable but unable to die just because its definition is missing/invalid.
+	if _health != null:
+		_health.damaged.connect(_on_damaged)
+		_health.died.connect(_on_died)
 	if definition != null and definition.is_valid():
 		if _health != null:
 			_health.max_health = definition.max_health
 			_health.actor_id = definition.id
 			_health.reset()
-			_health.damaged.connect(_on_damaged)
-			_health.died.connect(_on_died)
 	else:
 		push_warning("EnemyBrain %s: missing or invalid EnemyDefinition; the enemy stays inert" % name)
 	if _attack != null:
@@ -174,8 +177,8 @@ func _resolve_target() -> Node3D:
 func _usable_target(target: Node3D) -> Node3D:
 	if target == null or not target.is_inside_tree():
 		return null
-	var health := target.get_node_or_null(AttackController.HEALTH_NODE_NAME)
-	if health is HealthComponent and not (health as HealthComponent).is_alive():
+	var health := HealthComponent.find_on(target)
+	if health != null and not health.is_alive():
 		return null
 	return target
 

@@ -13,10 +13,25 @@ extends Node
 ##
 ## Scene contract (ADR-005): a damageable actor exposes this component as a
 ## direct child node named "HealthComponent"; hit resolution relies on that name.
+## The name and the lookup live here, with the component that the contract is about.
 
 signal health_changed(current: float, maximum: float)
 signal damaged(request: DamageRequest, result: DamageResult)
 signal died(request: DamageRequest)
+
+## Required child node name for a damageable actor (ADR-005).
+const NODE_NAME: String = "HealthComponent"
+
+
+## Finds the damage receiver of an actor, or null when the scene breaks the
+## ADR-005 contract. This is the single place that owns the node lookup.
+static func find_on(actor: Node) -> HealthComponent:
+	if actor == null:
+		return null
+	var node := actor.get_node_or_null(NODE_NAME)
+	if node is HealthComponent:
+		return node as HealthComponent
+	return null
 
 ## Maximum HP for one full life.
 @export var max_health: float = 100.0
@@ -39,6 +54,11 @@ func _ready() -> void:
 
 
 ## Restores a full life and allows `died` to be emitted again.
+##
+## Intended for scene restarts (a fresh arena) and tests. In-place revive is NOT
+## supported: owners cache the transition (for example `EnemyBrain` keeps the FSM
+## in its terminal DEAD state), so a revived actor stays inert until it is
+## recreated. A revive feature needs its own decision record.
 func reset() -> void:
 	current_health = maxf(max_health, 0.0)
 	_death_reported = false

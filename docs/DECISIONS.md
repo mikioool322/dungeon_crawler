@@ -90,8 +90,10 @@ Decision:
   never use raw ints.
 - Actor movement collision: the player and enemies collide with `world` and each other; hit
   queries mask `world | <opponent body layer>` so walls occlude hits in the same query.
-- Damageable actors must expose a direct child node named `HealthComponent`. This is the
-  hit-resolution scene contract (`AttackController` resolves the damage receiver by that name).
+- Damageable actors must expose a direct child node named `HealthComponent`. The name and the
+  lookup are owned by the component itself (`HealthComponent.NODE_NAME`,
+  `HealthComponent.find_on(actor)`); callers must not re-implement the lookup, and an attack that
+  reaches a collider without one reports a warning instead of failing silently.
 - InputMap actions (closed list): `move_forward`, `move_back`, `move_left`, `move_right`,
   `attack_primary`. They are written by `tools/setup_input_map.gd` and locked by
   `tests/unit/test_project_contract.gd`.

@@ -41,26 +41,30 @@ extends Resource
 
 
 ## Returns one message per invalid field; empty means the definition is usable.
+##
+## Non-finite values (INF/NAN) are rejected as well: they pass ordinary range
+## comparisons, would reach the physics server as an infinite probe radius and make
+## every swing resolve as a silent miss.
 func validation_errors() -> PackedStringArray:
 	var errors: PackedStringArray = PackedStringArray()
 	if id == &"":
 		errors.append("id must not be empty")
-	if damage < 0.0:
-		errors.append("damage must be >= 0 (got %f)" % damage)
-	if reach <= 0.0:
-		errors.append("reach must be > 0 (got %f)" % reach)
-	if hit_radius <= 0.0:
-		errors.append("hit_radius must be > 0 (got %f)" % hit_radius)
-	if hit_arc_degrees <= 0.0 or hit_arc_degrees > 180.0:
-		errors.append("hit_arc_degrees must be in (0, 180] (got %f)" % hit_arc_degrees)
-	if windup < 0.0:
-		errors.append("windup must be >= 0 (got %f)" % windup)
-	if active_window <= 0.0:
-		errors.append("active_window must be > 0 (got %f)" % active_window)
-	if recovery < 0.0:
-		errors.append("recovery must be >= 0 (got %f)" % recovery)
-	if cooldown < 0.0:
-		errors.append("cooldown must be >= 0 (got %f)" % cooldown)
+	if not is_finite(damage) or damage < 0.0:
+		errors.append("damage must be finite and >= 0 (got %f)" % damage)
+	if not is_finite(reach) or reach <= 0.0:
+		errors.append("reach must be finite and > 0 (got %f)" % reach)
+	if not is_finite(hit_radius) or hit_radius <= 0.0:
+		errors.append("hit_radius must be finite and > 0 (got %f)" % hit_radius)
+	if not is_finite(hit_arc_degrees) or hit_arc_degrees <= 0.0 or hit_arc_degrees > 180.0:
+		errors.append("hit_arc_degrees must be finite and in (0, 180] (got %f)" % hit_arc_degrees)
+	if not is_finite(windup) or windup < 0.0:
+		errors.append("windup must be finite and >= 0 (got %f)" % windup)
+	if not is_finite(active_window) or active_window <= 0.0:
+		errors.append("active_window must be finite and > 0 (got %f)" % active_window)
+	if not is_finite(recovery) or recovery < 0.0:
+		errors.append("recovery must be finite and >= 0 (got %f)" % recovery)
+	if not is_finite(cooldown) or cooldown < 0.0:
+		errors.append("cooldown must be finite and >= 0 (got %f)" % cooldown)
 	return errors
 
 

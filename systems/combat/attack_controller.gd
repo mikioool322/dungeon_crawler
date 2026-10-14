@@ -30,9 +30,9 @@ enum Phase { IDLE, WINDUP, ACTIVE, RECOVERY }
 ## Upper bound of phase transitions processed inside a single `advance()` call.
 const MAX_PHASE_TRANSITIONS_PER_ADVANCE: int = 8
 
-## Name of the damage receiver node on a target actor (ADR-005).
-## Kept as String because Node lookups require a NodePath-convertible value.
-const HEALTH_NODE_NAME: String = "HealthComponent"
+## Name of the damage receiver node on a target actor (ADR-005). The lookup and
+## the name live with the component itself; scenes that break the contract are
+## reported by `_query_and_apply()` instead of failing silently.
 
 ## Static attack data; must be a valid definition to allow attacks.
 @export var definition: AttackDefinition
@@ -136,6 +136,7 @@ func request_attack() -> bool:
 	_registry = HitRegistry.new()
 	_swing_elapsed = 0.0
 	_last_result = null
+	_abort_reason = &""
 	_enter_phase(Phase.WINDUP)
 	return true
 
@@ -207,31 +208,37 @@ func _query_and_apply() -> DamageResult:
 	if candidates.is_empty():
 		return DamageResult.miss(&"", DamageResult.REASON_NO_TARGET)
 
-	var rejection: StringName = DamageResult.REASON_NO_TARGET
+	var rejection: StringName = &""
 	var forward: Vector3 = -hit_origin.global_transform.basis.z
 	var primary: DamageResult = null
 	for candidate in candidates:
 		if not MeleeRules.within_arc(
 			origin, forward, candidate.contact_point, definition.hit_arc_degrees
 		):
-			rejection = DamageResult.REASON_OUT_OF_ARC
+			rejection = _first_rejection(rejection, DamageResult.REASON_OUT_OF_ARC)
 			continue
 		if not MeleeRules.within_reach(
 			origin, candidate.contact_point, definition.reach, definition.hit_radius
 		):
-			rejection = DamageResult.REASON_OUT_OF_REACH
+			rejection = _first_rejection(rejection, DamageResult.REASON_OUT_OF_REACH)
 			continue
 		if candidate.occluded:
-			rejection = DamageResult.REASON_OCCLUDED
+			rejection = _first_rejection(rejection, DamageResult.REASON_OCCLUDED)
 			continue
-		var health := _resolve_health(candidate.collider)
+		var health := HealthComponent.find_on(candidate.collider)
 		if health == null:
+			# A collider inside the gate without a HealthComponent breaks the ADR-005
+			# scene contract; report it instead of silently resolving as "no target".
+			push_warning(
+				"[AttackController] %s hit a target without a %s child: %s"
+				% [source_id, HealthComponent.NODE_NAME, candidate.collider.name]
+			)
 			continue
 		if not health.is_alive():
-			rejection = DamageResult.REASON_TARGET_DEAD
+			rejection = _first_rejection(rejection, DamageResult.REASON_TARGET_DEAD)
 			continue
 		if not _register_once(candidate.collider):
-			rejection = DamageResult.REASON_DUPLICATE
+			rejection = _first_rejection(rejection, DamageResult.REASON_DUPLICATE)
 			continue
 		var request := DamageRequest.new(
 			definition.id,
@@ -244,23 +251,23 @@ func _query_and_apply() -> DamageResult:
 		if result.applied and primary == null:
 			primary = result
 		elif not result.applied:
-			rejection = result.miss_reason
+			rejection = _first_rejection(rejection, result.miss_reason)
 	if primary != null:
 		return primary
-	return DamageResult.miss(&"", rejection)
+	return DamageResult.miss(&"", rejection if rejection != &"" else DamageResult.REASON_NO_TARGET)
+
+
+## Keeps the rejection of the nearest candidate; the first rejection wins because
+## `HitDetector` reports candidates nearest-first and ADR-004 documents
+## `attack_resolved` as carrying the *closest* rejection reason.
+func _first_rejection(current: StringName, candidate_reason: StringName) -> StringName:
+	return current if current != &"" else candidate_reason
 
 
 func _register_once(collider: Node3D) -> bool:
 	if _registry == null:
 		_registry = HitRegistry.new()
 	return _registry.register_once(collider.get_instance_id())
-
-
-func _resolve_health(collider: Node3D) -> HealthComponent:
-	var node := collider.get_node_or_null(HEALTH_NODE_NAME)
-	if node is HealthComponent:
-		return node as HealthComponent
-	return null
 
 
 func _excluded_rids() -> Array[RID]:

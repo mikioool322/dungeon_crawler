@@ -17,6 +17,19 @@ class SpyDetector extends HitDetector:
 		return []
 
 
+## Inner stub: returns hand-written candidates so rejection precedence can be tested
+## without physics.
+class ScriptedDetector extends HitDetector:
+	var scripted: Array[HitCandidate] = []
+
+	func query_hits(
+		_definition: AttackDefinition,
+		_origin: Transform3D,
+		_exclude_rids: Array[RID] = []
+	) -> Array[HitCandidate]:
+		return scripted
+
+
 func _make_definition(
 	windup: float = 0.3,
 	active_window: float = 0.1,
@@ -240,11 +253,67 @@ func test_missing_definition_blocks_attacks() -> void:
 
 
 func test_auto_tick_flag_controls_physics_processing() -> void:
+	# `_make_controller` sets auto_tick = false before entering the tree, so this
+	# asserts the _ready() wiring itself, not just the field value.
 	var controller := _make_controller(_make_definition())
-	assert_false(controller.auto_tick, "tests disable automatic ticking for determinism")
-	controller.auto_tick = true
-	controller.set_physics_process(controller.auto_tick)
-	assert_true(controller.auto_tick, "production scenes keep it enabled")
+	assert_false(
+		controller.is_physics_processing(),
+		"auto_tick = false must disable _physics_process in _ready()"
+	)
+	var ticking := AttackController.new()
+	ticking.definition = _make_definition()
+	ticking.auto_tick = true
+	add_to_tree(ticking)
+	assert_true(ticking.is_physics_processing(), "auto_tick = true keeps _physics_process enabled")
+
+
+func test_nearest_candidate_rejection_reason_is_reported() -> void:
+	## ADR-004: attack_resolved carries the *closest* rejection reason. The nearest
+	## candidate here is behind the attacker (outside the arc); the farther one is
+	## straight ahead but beyond reach, so a "last rejection wins" bug would report
+	## out_of_reach instead of out_of_arc.
+	var controller := _make_controller(_make_definition(0.3, 0.1, 0.4, 1.0))
+	var origin := Node3D.new()
+	add_to_tree(origin)
+	controller.hit_origin = origin
+	var detector := ScriptedDetector.new()
+	add_to_tree(detector)
+	controller.hit_detector = detector
+	var behind := Node3D.new()
+	add_to_tree(behind)
+	var far_ahead := Node3D.new()
+	add_to_tree(far_ahead)
+	detector.scripted = [
+		HitCandidate.new(behind, Vector3(0, 0, 0.5), 0.5, false),
+		HitCandidate.new(far_ahead, Vector3(0, 0, -9.0), 9.0, false),
+	]
+	controller.request_attack()
+	controller.advance(0.31)
+	assert_not_null(controller.last_result(), "the swing resolved")
+	if controller.last_result() != null:
+		assert_eq(
+			controller.last_result().miss_reason,
+			DamageResult.REASON_OUT_OF_ARC,
+			"the nearest candidate's reason is reported"
+		)
+
+
+func test_abort_reason_describes_only_the_last_cancelled_swing() -> void:
+	var controller := _make_controller(_make_definition(0.1, 0.1, 0.1, 0.5))
+	controller.request_attack()
+	controller.abort(&"dead")
+	assert_eq(controller.abort_reason(), &"dead", "the cancel reason is recorded")
+	for _i in 200:
+		if controller.can_attack():
+			break
+		controller.advance(0.02)
+	assert_true(controller.request_attack(), "a fresh swing starts")
+	controller.advance(0.2)
+	assert_eq(
+		controller.abort_reason(),
+		&"",
+		"a later swing must not inherit a stale abort reason"
+	)
 
 
 func test_phase_name_is_stable_for_hud_and_debug() -> void:

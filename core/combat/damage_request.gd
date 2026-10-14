@@ -21,7 +21,12 @@ var amount: float
 ## World-space point where the attack connected.
 var hit_position: Vector3
 
-## World-space surface normal at the contact point.
+## World-space normal of the contact point.
+##
+## Sprint 01 placeholder: `HitDetector` gathers contact points from a shape query
+## that reports no surface normal, so attacks currently fill this with `Vector3.UP`.
+## Consumers must treat it as an approximation (useful for a crude VFX orientation
+## at most) until a normal is queried from physics and tested.
 var hit_normal: Vector3
 
 

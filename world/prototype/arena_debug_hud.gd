@@ -36,6 +36,8 @@ func _process(_delta: float) -> void:
 
 
 func _player_status() -> String:
+	if not is_instance_valid(_player):
+		return "Player: n/a"
 	var health := _health_of(_player)
 	if health == null:
 		return "Player: n/a"
@@ -45,10 +47,10 @@ func _player_status() -> String:
 
 
 func _enemy_status() -> String:
-	if _enemy == null:
+	if not is_instance_valid(_enemy):
 		return "Enemy: n/a"
 	var health := _health_of(_enemy)
-	var attack := _enemy.get_node_or_null(^"AttackController") as AttackController
+	var attack := _enemy.get_node_or_null("AttackController") as AttackController
 	var parts := PackedStringArray()
 	if health != null:
 		parts.append("HP %d / %d" % [roundi(health.current_health), roundi(health.max_health)])
@@ -62,9 +64,4 @@ func _enemy_status() -> String:
 
 
 func _health_of(node: Node) -> HealthComponent:
-	if node == null:
-		return null
-	var health := node.get_node_or_null(AttackController.HEALTH_NODE_NAME)
-	if health is HealthComponent:
-		return health as HealthComponent
-	return null
+	return HealthComponent.find_on(node)

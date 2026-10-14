@@ -357,3 +357,18 @@ func test_lethal_damage_aborts_the_swing_and_prevents_further_attacks() -> void:
 		"the target standing in range is never hit"
 	)
 	assert_true(_enemy.velocity.length() < 0.05, "the corpse keeps zero velocity")
+
+
+func test_enemy_without_a_definition_is_still_damageable_and_dies() -> void:
+	## A mistyped or missing EnemyDefinition must not produce a damageable actor that
+	## can never die: death wiring is independent of the data gate, so the actor stops
+	## and reports DEAD instead of silently ignoring lethal damage.
+	await _build_world(Vector3(0, 0, -1.6))
+	_enemy.definition = null
+	await wait_physics_frames(2)
+	_enemy_health.apply_damage(
+		DamageRequest.new(&"test.mistyped", &"test.runner", _enemy_health.max_health)
+	)
+	assert_false(_enemy_health.is_alive(), "HP reached zero")
+	assert_eq(_enemy.fsm_state, EnemyFsm.State.DEAD, "death is still reported without a definition")
+	assert_eq(_attack.phase, AttackController.Phase.IDLE, "no swing survives the death")

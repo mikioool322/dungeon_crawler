@@ -157,19 +157,25 @@ offset_left = 12.0
 offset_top = 10.0
 offset_right = 520.0
 offset_bottom = 58.0
+mouse_filter = 2
 
 [node name="PlayerHp" type="Label" parent="Hud/Status"]
 theme_override_font_sizes/font_size = 16
 text = "Player HP: --"
+mouse_filter = 2
 
 [node name="EnemyStatus" type="Label" parent="Hud/Status"]
 theme_override_font_sizes/font_size = 16
 text = "Enemy: --"
+mouse_filter = 2
 
 [node name="Hint" type="Label" parent="Hud"]
+anchor_top = 1.0
+anchor_bottom = 1.0
 offset_left = 12.0
-offset_top = 660.0
+offset_top = -40.0
 offset_right = 900.0
-offset_bottom = 690.0
+offset_bottom = -12.0
 theme_override_font_sizes/font_size = 14
 text = "WASD move | mouse look | left click attack | backpedal to dodge | Esc release mouse | R restart"
+mouse_filter = 2

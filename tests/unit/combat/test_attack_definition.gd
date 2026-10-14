@@ -108,6 +108,22 @@ func test_errors_are_reported_per_field() -> void:
 	assert_eq(definition.validation_errors().size(), 3, "one message per invalid field")
 
 
+func test_non_finite_numbers_are_rejected_for_every_field() -> void:
+	## INF/NAN pass ordinary range comparisons, would reach the physics server as an
+	## infinite probe radius and turn every swing into a silent miss.
+	for field in [
+		"damage", "reach", "hit_radius", "hit_arc_degrees",
+		"windup", "active_window", "recovery", "cooldown",
+	]:
+		for value in [INF, -INF, NAN]:
+			var definition := _make_valid_definition()
+			definition.set(field, value)
+			assert_false(
+				definition.is_valid(),
+				"%s = %f must be rejected" % [field, value]
+			)
+
+
 func test_definition_is_a_resource_and_defaults_are_valid_for_editing() -> void:
 	var definition := AttackDefinition.new()
 	assert_instance_of(definition, "Resource")

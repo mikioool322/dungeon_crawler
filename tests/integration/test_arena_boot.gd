@@ -126,3 +126,50 @@ func test_player_settles_on_the_floor_at_spawn() -> void:
 	var player := _player()
 	assert_true(player.is_on_floor(), "player stands on the arena floor")
 	assert_almost_eq(player.global_position.y, 0.0, 0.1, "player origin sits at floor level")
+
+
+func test_hud_controls_never_swallow_mouse_input() -> void:
+	## Controls default to MOUSE_FILTER_STOP, which would eat the click that
+	## re-captures the mouse (and could later eat gameplay clicks).
+	_instantiate_arena()
+	await wait_physics_frames(2)
+	var hud := _arena.get_node_or_null("Hud") as CanvasLayer
+	assert_not_null(hud, "HUD exists")
+	if hud == null:
+		return
+	var checked: int = 0
+	for node in _all_controls(hud):
+		checked += 1
+		assert_eq(
+			node.mouse_filter,
+			Control.MOUSE_FILTER_IGNORE,
+			"HUD control '%s' must ignore mouse input" % node.name
+		)
+	assert_true(checked >= 4, "the HUD has the expected controls (found %d)" % checked)
+
+
+func test_hud_survives_a_freed_actor() -> void:
+	## Corpse cleanup / in-place encounter resets are the next likely feature; the HUD
+	## must degrade to "n/a" instead of dereferencing a freed node every frame.
+	_instantiate_arena()
+	await wait_physics_frames(2)
+	var hud := _arena.get_node_or_null("Hud") as ArenaDebugHud
+	var enemy := _enemy()
+	assert_not_null(hud, "HUD exists")
+	assert_not_null(enemy, "enemy exists")
+	enemy.queue_free()
+	await wait_process_frames(3)
+	assert_false(is_instance_valid(enemy), "the enemy is really freed")
+	assert_true(
+		hud.enemy_status_label.text.contains("n/a"),
+		"HUD reports the missing actor instead of a stale line, got '%s'" % hud.enemy_status_label.text
+	)
+
+
+func _all_controls(root: Node) -> Array[Control]:
+	var found: Array[Control] = []
+	for child in root.get_children():
+		if child is Control:
+			found.append(child as Control)
+		found.append_array(_all_controls(child))
+	return found

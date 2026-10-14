@@ -27,6 +27,20 @@ func _errors(definition: EnemyDefinition) -> String:
 	return " | ".join(definition.validation_errors())
 
 
+func test_non_finite_numbers_are_rejected_for_every_field() -> void:
+	for field in [
+		"max_health", "move_speed", "detection_radius", "lose_radius",
+		"attack_range", "stop_distance",
+	]:
+		for value in [INF, -INF, NAN]:
+			var definition := _make_definition()
+			definition.set(field, value)
+			assert_false(
+				definition.is_valid(),
+				"%s = %f must be rejected" % [field, value]
+			)
+
+
 # --- validation --------------------------------------------------------------
 
 func test_a_configured_definition_is_valid() -> void:

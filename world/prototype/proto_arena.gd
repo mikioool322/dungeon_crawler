@@ -27,8 +27,17 @@ func _ready() -> void:
 	_player = get_node_or_null(player_path) as Node3D
 	_enemy = get_node_or_null(enemy_path)
 	var hud := get_node_or_null(hud_path) as ArenaDebugHud
-	if _enemy != null and _player != null and _enemy.has_method("set_target"):
-		_enemy.call("set_target", _player)
+	if _player == null:
+		push_warning("ProtoArena: player_path '%s' did not resolve; the encounter cannot start" % player_path)
+	if _enemy == null:
+		push_warning("ProtoArena: enemy_path '%s' did not resolve; the encounter cannot start" % enemy_path)
+	if hud == null:
+		push_warning("ProtoArena: hud_path '%s' did not resolve; debug output is disabled" % hud_path)
+	if _enemy != null and _player != null:
+		if _enemy.has_method("set_target"):
+			_enemy.call("set_target", _player)
+		else:
+			push_warning("ProtoArena: enemy '%s' has no set_target(); it will never engage" % _enemy.name)
 	if hud != null:
 		hud.bind(_player, _enemy)
 
@@ -43,6 +52,8 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Reloads the arena: the only "reset" in Sprint 01 (ADR-003).
 func _restart() -> void:
 	var tree := get_tree()
-	if tree == null:
+	if tree == null or tree.current_scene == null:
+		# Under the headless test runner the arena is a plain child, not the current
+		# scene; restarting is a no-op there instead of an engine error.
 		return
 	tree.reload_current_scene()

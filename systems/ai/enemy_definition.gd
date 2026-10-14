@@ -44,25 +44,30 @@ extends Resource
 
 
 ## Returns one message per invalid field; empty means the definition is usable.
+##
+## Non-finite values (INF/NAN) are rejected as well: they pass ordinary range
+## comparisons and would make the enemy effectively unkillable or permanently
+## unaware, with no author-facing message.
 func validation_errors() -> PackedStringArray:
 	var errors: PackedStringArray = PackedStringArray()
 	if id == &"":
 		errors.append("id must not be empty")
-	if max_health <= 0.0:
-		errors.append("max_health must be > 0 (got %f)" % max_health)
-	if move_speed < 0.0:
-		errors.append("move_speed must be >= 0 (got %f)" % move_speed)
-	if detection_radius <= 0.0:
-		errors.append("detection_radius must be > 0 (got %f)" % detection_radius)
-	if lose_radius < detection_radius:
+	if not is_finite(max_health) or max_health <= 0.0:
+		errors.append("max_health must be finite and > 0 (got %f)" % max_health)
+	if not is_finite(move_speed) or move_speed < 0.0:
+		errors.append("move_speed must be finite and >= 0 (got %f)" % move_speed)
+	if not is_finite(detection_radius) or detection_radius <= 0.0:
+		errors.append("detection_radius must be finite and > 0 (got %f)" % detection_radius)
+	if not is_finite(lose_radius) or lose_radius < detection_radius:
 		errors.append(
-			"lose_radius must be >= detection_radius (got %f < %f)" % [lose_radius, detection_radius]
+			"lose_radius must be finite and >= detection_radius (got %f < %f)"
+			% [lose_radius, detection_radius]
 		)
-	if attack_range <= 0.0:
-		errors.append("attack_range must be > 0 (got %f)" % attack_range)
-	if stop_distance <= 0.0 or stop_distance > attack_range:
+	if not is_finite(attack_range) or attack_range <= 0.0:
+		errors.append("attack_range must be finite and > 0 (got %f)" % attack_range)
+	if not is_finite(stop_distance) or stop_distance <= 0.0 or stop_distance > attack_range:
 		errors.append(
-			"stop_distance must be in (0, attack_range] (got %f, attack_range %f)"
+			"stop_distance must be finite and in (0, attack_range] (got %f, attack_range %f)"
 			% [stop_distance, attack_range]
 		)
 	if attack_definition == null:

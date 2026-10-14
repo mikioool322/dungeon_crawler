@@ -66,6 +66,13 @@ func _build_world() -> void:
 	_world.add_child(floor_body)
 
 	_attacker = _make_body(PhysicsLayers.PLAYER_BODY, 0.4, 1.8)
+	# Real rigs are damageable; giving the fixture attacker HP makes the
+	# self-exclusion test meaningful (see test_attacker_does_not_hit_itself).
+	var attacker_health := HealthComponent.new()
+	attacker_health.name = &"HealthComponent"
+	attacker_health.max_health = 100.0
+	attacker_health.actor_id = &"tester"
+	_attacker.add_child(attacker_health)
 	_world.add_child(_attacker)
 
 	_origin = Node3D.new()
@@ -257,11 +264,20 @@ func test_target_behind_the_attacker_is_not_hit() -> void:
 
 
 func test_attacker_does_not_hit_itself() -> void:
+	## The attacker is damageable here (like the real rig), so this test can only
+	## pass because its own body RID is excluded from the hit query: without the
+	## exclusion the swing would land on the attacker instead of the target.
 	await _build_world()
 	_detector.target_mask = PhysicsLayers.ENEMY_BODY | PhysicsLayers.PLAYER_BODY
+	var target := _spawn_target(TARGET_START)
 	await wait_physics_frames(2)
+	var attacker_health := _health_of(_attacker)
+	assert_eq(attacker_health.current_health, 100.0, "the attacker starts at full HP")
 	var result := _swing_and_resolve()
-	assert_false(result.applied, "the attacker's own body is excluded from its query")
+	assert_true(result.applied, "the target in front is still hit")
+	assert_eq(result.target_id, &"enemy.grunt", "the hit landed on the target, not on the attacker")
+	assert_eq(attacker_health.current_health, 100.0, "the attacker's own body is excluded from its query")
+	assert_eq(_health_of(target).current_health, 75.0, "the target took exactly one hit")
 
 
 func test_dead_target_cannot_be_damaged_again() -> void:

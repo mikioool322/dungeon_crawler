@@ -129,6 +129,20 @@ func test_chase_gives_up_beyond_lose_radius_with_force_stop() -> void:
 	assert_true(targetless.force_stop, "losing the target stops the enemy")
 
 
+func test_losing_line_of_sight_during_chase_does_not_make_it_give_up() -> void:
+	## Documented, deliberate rule (docs/SPRINT_01.md "Known constraints"): LOS gates
+	## detection and starting a swing, but a chasing enemy keeps closing on the target's
+	## live position. An LOS-timeout give-up would be a new FSM row and needs an ADR.
+	var params := _params(12.0, 16.0, 1.8)
+	var decision := EnemyFsm.step(EnemyFsm.State.CHASE, _inputs(true, 5.0, false), params)
+	assert_eq(decision.next, EnemyFsm.State.CHASE, "chase continues without line of sight")
+	assert_false(decision.force_stop, "and keeps moving towards the last known direction")
+
+	var no_swing := EnemyFsm.step(EnemyFsm.State.CHASE, _inputs(true, 1.5, false), params)
+	assert_ne(no_swing.next, EnemyFsm.State.ATTACK, "but it never starts a swing without line of sight")
+	assert_false(no_swing.want_attack, "no attack request without line of sight")
+
+
 func test_chase_attacks_only_in_range_ready_and_with_target_and_sight() -> void:
 	var params := _params()
 	var in_range := EnemyFsm.step(EnemyFsm.State.CHASE, _inputs(true, 1.5, true, true), params)
