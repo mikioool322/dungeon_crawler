@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://systems/ai/enemy_definition.gd" id="1_enemy_definition"]
 [ext_resource type="Resource" path="res://content/definitions/attack_enemy_basic.tres" id="2_attack_definition"]
+[ext_resource type="Resource" path="res://content/definitions/reward_grunt_drop.tres" id="3_reward"]
 
 [resource]
 script = ExtResource("1_enemy_definition")
@@ -13,3 +14,4 @@ lose_radius = 16.0
 attack_range = 1.8
 stop_distance = 1.5
 attack_definition = ExtResource("2_attack_definition")
+reward = ExtResource("3_reward")

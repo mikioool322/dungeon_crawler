@@ -1,0 +1,21 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://world/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://world/world_router.gd" id="2_router"]
+[ext_resource type="PackedScene" path="res://actors/player/player.tscn" id="3_player"]
+[ext_resource type="PackedScene" path="res://presentation/hud/game_hud.tscn" id="4_hud"]
+
+[node name="Main" type="Node" node_paths=PackedStringArray("world_slot", "router", "hud")]
+script = ExtResource("1_main")
+world_slot = NodePath("WorldSlot")
+router = NodePath("Router")
+hud = NodePath("Hud")
+
+[node name="WorldSlot" type="Node3D" parent="."]
+
+[node name="Router" type="Node" parent="." node_paths=PackedStringArray("player_scene")]
+script = ExtResource("2_router")
+player_scene = ExtResource("3_player")
+respawn_world_id = &"world.hub"
+
+[node name="Hud" parent="." instance=ExtResource("4_hud")]

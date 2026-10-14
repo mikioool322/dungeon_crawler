@@ -42,6 +42,11 @@ extends Resource
 ## Attack used by this enemy; must be a valid `AttackDefinition`.
 @export var attack_definition: AttackDefinition = null
 
+## Optional reward dropped when this archetype dies (ADR-009). A placement can carry
+## a different `loot_source_id` to make each drop claimable exactly once; the reward
+## payload itself is archetype data. Null means "drops nothing".
+@export var reward: RewardDefinition = null
+
 
 ## Returns one message per invalid field; empty means the definition is usable.
 ##
@@ -75,6 +80,9 @@ func validation_errors() -> PackedStringArray:
 	elif not attack_definition.is_valid():
 		for problem in attack_definition.validation_errors():
 			errors.append("attack_definition: %s" % problem)
+	if reward != null and not reward.is_valid():
+		for problem in reward.validation_errors():
+			errors.append("reward: %s" % problem)
 	return errors
 
 

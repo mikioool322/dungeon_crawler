@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="RewardDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/content/reward_definition.gd" id="1_reward_definition"]
+
+[resource]
+script = ExtResource("1_reward_definition")
+id = &"reward.grunt_drop"
+item_count = 0
+gold = 3

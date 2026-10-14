@@ -24,6 +24,10 @@ extends CharacterBody3D
 ## Emitted on every FSM state change; values are `EnemyFsm.State`.
 signal state_changed(previous: int, next: int)
 
+## Emitted exactly once per life when this placement carries a reward (ADR-009).
+## The world host turns it into a drop; combat never touches inventory.
+signal defeated(reward: RewardDefinition, loot_source_id: StringName, at: Vector3)
+
 ## Downward acceleration for the placeholder body (flat greybox arenas).
 const GRAVITY: float = 9.8
 
@@ -48,12 +52,18 @@ const TELEGRAPH_DEAD_COLOR: Color = Color(0.35, 0.35, 0.36)
 ## Optional scene path to the hunted actor; `set_target()` overrides it.
 @export var target_path: NodePath
 
+## Stable per-placement loot source id (e.g. `enemy.a`). Together with the world id
+## it forms the reward key, so a drop is claimable exactly once (ADR-009). Never a
+## node name or display name.
+@export var loot_source_id: StringName = &""
+
 ## Current FSM state, exposed for tests and the future HUD.
 var fsm_state: EnemyFsm.State = EnemyFsm.State.IDLE
 
 var _params: EnemyFsm.Params = EnemyFsm.Params.new()
 var _target: Node3D = null
 var _alive: bool = true
+var _defeat_reported: bool = false
 
 var _material: StandardMaterial3D = null
 var _base_albedo: Color = Color(0.35, 0.30, 0.32)
@@ -273,3 +283,15 @@ func _on_died(_request: DamageRequest) -> void:
 	velocity = Vector3.ZERO
 	_set_state(EnemyFsm.State.DEAD)
 	_refresh_telegraph()
+	_report_defeat()
+
+
+## Reports this placement's drop exactly once per life (ADR-009). Silent when the
+## archetype has no reward or the placement carries no loot source id.
+func _report_defeat() -> void:
+	if _defeat_reported:
+		return
+	if definition == null or definition.reward == null or loot_source_id == &"":
+		return
+	_defeat_reported = true
+	defeated.emit(definition.reward, loot_source_id, global_position)
