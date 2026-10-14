@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="RewardDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://core/content/reward_definition.gd" id="1_reward_definition"]
+[ext_resource type="Resource" path="res://content/definitions/item_minor_salve.tres" id="2_minor_salve"]
+
+[resource]
+script = ExtResource("1_reward_definition")
+id = &"reward.chest.proto01"
+item = ExtResource("2_minor_salve")
+item_count = 1
+gold = 5

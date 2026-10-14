@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/content/item_definition.gd" id="1_item_definition"]
+
+[resource]
+script = ExtResource("1_item_definition")
+id = &"item.minor_salve"
+display_name = "Minor Salve"
+description = "A bitter green paste. Tastes worse than it smells."
+kind = 1
+stackable = true
+max_stack = 5

@@ -1,0 +1,30 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://systems/interaction/chest_interactable.gd" id="1_chest"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_chest"]
+size = Vector3(1.0, 0.8, 0.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_chest"]
+albedo_color = Color(0.42, 0.3, 0.18, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="BoxMesh_chest"]
+material = SubResource("StandardMaterial3D_chest")
+size = Vector3(0.9, 0.7, 0.6)
+
+[node name="LootChest" type="Area3D"]
+collision_layer = 16
+collision_mask = 0
+monitoring = false
+script = ExtResource("1_chest")
+prompt = "Open"
+one_shot = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+shape = SubResource("BoxShape3D_chest")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+mesh = SubResource("BoxMesh_chest")

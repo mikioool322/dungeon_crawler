@@ -1,0 +1,189 @@
+[gd_scene load_steps=19 format=3]
+
+[ext_resource type="Script" path="res://world/world_host.gd" id="1_world_host"]
+[ext_resource type="Script" path="res://world/spawn_marker.gd" id="2_spawn_marker"]
+[ext_resource type="PackedScene" path="res://world/prefabs/portal.tscn" id="3_portal"]
+[ext_resource type="Script" path="res://world/hub/save_shrine_interactable.gd" id="4_shrine"]
+
+[sub_resource type="Environment" id="Environment_hub"]
+background_mode = 1
+background_color = Color(0.06, 0.06, 0.09, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.5, 0.5, 0.55, 1)
+ambient_light_energy = 0.7
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_stone"]
+albedo_color = Color(0.3, 0.29, 0.31, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_stall"]
+albedo_color = Color(0.36, 0.31, 0.24, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shrine"]
+albedo_color = Color(0.55, 0.52, 0.42, 1)
+emission_enabled = true
+emission = Color(0.35, 0.3, 0.15, 1)
+emission_energy_multiplier = 0.6
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
+size = Vector3(24, 1, 24)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_z"]
+size = Vector3(24, 4, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_x"]
+size = Vector3(1, 4, 24)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_stall"]
+size = Vector3(3, 2, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_shrine"]
+size = Vector3(1.2, 1.4, 1.2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_floor"]
+material = SubResource("StandardMaterial3D_stone")
+size = Vector3(24, 1, 24)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_z"]
+material = SubResource("StandardMaterial3D_stone")
+size = Vector3(24, 4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_x"]
+material = SubResource("StandardMaterial3D_stone")
+size = Vector3(1, 4, 24)
+
+[sub_resource type="BoxMesh" id="BoxMesh_stall"]
+material = SubResource("StandardMaterial3D_stall")
+size = Vector3(3, 2, 2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_shrine"]
+material = SubResource("StandardMaterial3D_shrine")
+size = Vector3(1.0, 1.3, 1.0)
+
+[node name="Hub" type="Node3D"]
+script = ExtResource("1_world_host")
+world_id = &"world.hub"
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_hub")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.766044, -0.321394, 0.55667, 0, 0.866025, 0.5, -0.642788, -0.383022, 0.663414, 0, 10, 0)
+light_energy = 0.9
+shadow_enabled = true
+
+[node name="Floor" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor"]
+shape = SubResource("BoxShape3D_floor")
+
+[node name="Mesh" type="MeshInstance3D" parent="Floor"]
+mesh = SubResource("BoxMesh_floor")
+
+[node name="WallNorth" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -12.5)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallNorth"]
+shape = SubResource("BoxShape3D_wall_z")
+
+[node name="Mesh" type="MeshInstance3D" parent="WallNorth"]
+mesh = SubResource("BoxMesh_wall_z")
+
+[node name="WallSouth" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 12.5)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallSouth"]
+shape = SubResource("BoxShape3D_wall_z")
+
+[node name="Mesh" type="MeshInstance3D" parent="WallSouth"]
+mesh = SubResource("BoxMesh_wall_z")
+
+[node name="WallEast" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.5, 2, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallEast"]
+shape = SubResource("BoxShape3D_wall_x")
+
+[node name="Mesh" type="MeshInstance3D" parent="WallEast"]
+mesh = SubResource("BoxMesh_wall_x")
+
+[node name="WallWest" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12.5, 2, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallWest"]
+shape = SubResource("BoxShape3D_wall_x")
+
+[node name="Mesh" type="MeshInstance3D" parent="WallWest"]
+mesh = SubResource("BoxMesh_wall_x")
+
+[node name="StallWest" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 1, -6)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StallWest"]
+shape = SubResource("BoxShape3D_stall")
+
+[node name="Mesh" type="MeshInstance3D" parent="StallWest"]
+mesh = SubResource("BoxMesh_stall")
+
+[node name="StallEast" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 1, -6)
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StallEast"]
+shape = SubResource("BoxShape3D_stall")
+
+[node name="Mesh" type="MeshInstance3D" parent="StallEast"]
+mesh = SubResource("BoxMesh_stall")
+
+[node name="Shrine" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, -9)
+collision_layer = 16
+collision_mask = 0
+monitoring = false
+script = ExtResource("4_shrine")
+prompt = "Save progress"
+one_shot = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Shrine"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("BoxShape3D_shrine")
+
+[node name="Mesh" type="MeshInstance3D" parent="Shrine"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, 0)
+mesh = SubResource("BoxMesh_shrine")
+
+[node name="PortalToDungeon" parent="." instance=ExtResource("3_portal")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -11.5)
+target_world_id = &"world.dungeon.proto01"
+target_spawn_id = &"spawn.dungeon.entry"
+
+[node name="SpawnStart" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 8)
+script = ExtResource("2_spawn_marker")
+spawn_id = &"spawn.hub.start"
+
+[node name="SpawnDungeonPortal" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, -9)
+script = ExtResource("2_spawn_marker")
+spawn_id = &"spawn.hub.dungeon_portal"
+
+[node name="SpawnShrine" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.2, -7)
+script = ExtResource("2_spawn_marker")
+spawn_id = &"spawn.hub.shrine"
