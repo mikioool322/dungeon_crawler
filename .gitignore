@@ -1,0 +1,24 @@
+# Godot 4 generated caches and editor metadata (never commit imports cache)
+.godot/
+.import/
+
+# Transient files
+*.tmp
+*.swp
+*.orig
+*.rej
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Python tooling (tools/*.py)
+__pycache__/
+*.pyc
+
+# Local export output (store large raw exports via asset policy, not Git)
+build/
+export/
+*.pck
+*.exe
+*.zip

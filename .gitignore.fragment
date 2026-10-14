@@ -1,0 +1,9 @@
+# Merge manually into your existing .gitignore
+.godot/
+.import/
+*.tmp
+*.swp
+.DS_Store
+__pycache__/
+*.pyc
+# Large raw generated exports should be stored through your asset policy, not ignored blindly.
