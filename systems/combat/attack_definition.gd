@@ -23,6 +23,10 @@ extends Resource
 ## Radius of the physics probe sphere used to gather candidates (metres).
 @export var hit_radius: float = 0.3
 
+## Half-angle of the frontal attack arc, in degrees. Targets outside it are missed
+## with reason `out_of_arc`; 180 means "any direction around the attacker".
+@export var hit_arc_degrees: float = 60.0
+
 ## Time before the hit frame; the telegraph window.
 @export var windup: float = 0.35
 
@@ -47,6 +51,8 @@ func validation_errors() -> PackedStringArray:
 		errors.append("reach must be > 0 (got %f)" % reach)
 	if hit_radius <= 0.0:
 		errors.append("hit_radius must be > 0 (got %f)" % hit_radius)
+	if hit_arc_degrees <= 0.0 or hit_arc_degrees > 180.0:
+		errors.append("hit_arc_degrees must be in (0, 180] (got %f)" % hit_arc_degrees)
 	if windup < 0.0:
 		errors.append("windup must be >= 0 (got %f)" % windup)
 	if active_window <= 0.0:

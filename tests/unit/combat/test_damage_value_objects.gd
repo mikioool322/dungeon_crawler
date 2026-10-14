@@ -50,6 +50,7 @@ func test_miss_without_a_reason_falls_back_to_no_target() -> void:
 
 
 func test_miss_reason_vocabulary_matches_the_contract() -> void:
+	assert_eq(DamageResult.REASON_OUT_OF_ARC, &"out_of_arc", "out_of_arc")
 	assert_eq(DamageResult.REASON_OUT_OF_REACH, &"out_of_reach", "out_of_reach")
 	assert_eq(DamageResult.REASON_OCCLUDED, &"occluded", "occluded")
 	assert_eq(DamageResult.REASON_TARGET_DEAD, &"target_dead", "target_dead")

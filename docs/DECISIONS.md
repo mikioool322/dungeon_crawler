@@ -63,6 +63,21 @@ Decision:
 - `HitRegistry` (one instance per swing) guarantees at most one damage application per target
   per swing.
 - `AttackDefinition` resources are immutable at runtime.
+
+Addendum (W2 implementation evidence):
+- The physics shape query reports a target body's origin (at its feet), so the range gate
+  compares the horizontal (XZ) distance from the hit origin to the reported contact point.
+  Vertical separation between floors is out of scope for the flat Sprint 01 arena and would
+  need its own ADR.
+- Every attack declares `hit_arc_degrees` (half-angle of the frontal arc, measured on the
+  horizontal plane). Candidates outside the arc miss with `out_of_arc`; this is what stops a
+  forward swing from hitting a target behind the attacker.
+- Line of sight is tested from the hit origin to swing height above the reported contact point
+  (`HitDetector.occlusion_probe_height`, default 1.0 m), so low cover does not block a
+  chest-height swing while walls and pillars still do.
+- One swing may damage several targets. `attack_resolved` carries the nearest applied hit, or
+  the closest rejection reason (`out_of_arc`, `out_of_reach`, `occluded`, `target_dead`,
+  `duplicate`) when nothing was hit.
 Consequences: Deterministic headless tests for phase timing and misses. Multi-tick hit windows
 or invulnerability frames would require a new ADR.
 

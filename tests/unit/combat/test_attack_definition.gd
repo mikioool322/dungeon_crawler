@@ -77,6 +77,18 @@ func test_non_positive_active_window_is_rejected() -> void:
 	assert_false(definition.is_valid(), "an attack needs a hit frame, so active_window must be > 0")
 
 
+func test_arc_degrees_are_validated() -> void:
+	var definition := _make_valid_definition()
+	definition.hit_arc_degrees = 0.0
+	assert_false(definition.is_valid(), "zero arc invalid")
+	definition.hit_arc_degrees = -10.0
+	assert_false(definition.is_valid(), "negative arc invalid")
+	definition.hit_arc_degrees = 181.0
+	assert_false(definition.is_valid(), "arc above 180 degrees invalid")
+	definition.hit_arc_degrees = 180.0
+	assert_true(definition.is_valid(), "180 degrees (full circle) is the upper bound")
+
+
 func test_negative_cooldown_is_rejected() -> void:
 	var definition := _make_valid_definition()
 	definition.cooldown = -0.5

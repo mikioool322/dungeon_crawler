@@ -9,6 +9,7 @@ extends RefCounted
 ##   REASON_NONE, so callers can branch on `applied` alone.
 
 const REASON_NONE: StringName = &""
+const REASON_OUT_OF_ARC: StringName = &"out_of_arc"
 const REASON_OUT_OF_REACH: StringName = &"out_of_reach"
 const REASON_OCCLUDED: StringName = &"occluded"
 const REASON_TARGET_DEAD: StringName = &"target_dead"
