@@ -77,11 +77,36 @@ run's report, not from the authors' expectation.
 
 ## Findings
 
+### Found by the authors during the sprint
+
 | # | Finding | Severity | Status |
 |---|---------|----------|--------|
-| 1 | `reset_to_new_game()` replaced the equipment record with an unwired instance, so a first-run player could not equip anything | HIGH | fixed in `6cdfb0e` (`GameSession._wire_equipment()` on setup/new game/load, re-binding the trade service too) |
-| 2 | The trade service kept a stale equipment reference after a load, so its defensive "equipped" check could inspect the wrong record | MEDIUM | fixed in `f5021b6` |
-| 3 | The live rig did not receive an equipment change (the weapon profile only applied at spawn) | HIGH | fixed in `6cdfb0e` (`WorldRouter._connect_player_loadout`) |
-| 4 | Two new HUD tests simulated input without flushing the buffer, so the second toggle could be missed | LOW | fixed in `cc610ad` (`Input.flush_buffered_events()` after every simulated action) |
-| 5 | The end-to-end loop left the dialogue panel open, which correctly blocked the player's attack input | LOW | fixed in `cc610ad` (the loop closes the panel through the real `ui_cancel` handler) |
-| 6 | `ItemDefinition.validation_errors()` gained rules; the frozen "fresh item = exactly 3 errors" test still passes because no new rule fires for default values | INFO | no action needed, covered by the existing test |
+| A1 | `reset_to_new_game()` replaced the equipment record with an unwired instance, so a first-run player could not equip anything | HIGH | fixed in `6cdfb0e` (`GameSession._wire_equipment()` on setup/new game/load, re-binding the trade service too) |
+| A2 | The trade service kept a stale equipment reference after a load, so its defensive "equipped" check could inspect the wrong record | MEDIUM | fixed in `f5021b6` |
+| A3 | The live rig did not receive an equipment change (the weapon profile only applied at spawn) | HIGH | fixed in `6cdfb0e` (`WorldRouter._connect_player_loadout`) |
+| A4 | Two new HUD tests simulated input without flushing the buffer, so the second toggle could be missed | LOW | fixed in `cc610ad` (`Input.flush_buffered_events()` after every simulated action) |
+| A5 | The end-to-end loop left the dialogue panel open, which correctly blocked the player's attack input | LOW | fixed in `cc610ad` (the loop closes the panel through the real `ui_cancel` handler) |
+| A6 | `ItemDefinition.validation_errors()` gained rules; the frozen "fresh item = exactly 3 errors" test still passes because no new rule fires for default values | INFO | no action needed, covered by the existing test |
+
+### Found by the independent review
+
+| # | Finding | Severity | Status |
+|---|---------|----------|--------|
+| R1 | A slot-mismatched (or non-equippable) equipment record on load destroyed the only copy of the item instead of returning it to the bag, contradicting ADR-015 | HIGH | fixed in `f091692` (the copy returns to the bag, the drop is reported) |
+| R2 | A spare bagged copy of an equipped item could not be sold: the defensive "equipped" refusal was per id instead of per copy | MEDIUM | fixed in `f091692` (`can_sell` checks the bag count first; ADR-015 restated) |
+| R3 | `equipment_changed` was dead after every record rebuild, so a data-only weapon swap would never reach the live rig | MEDIUM | fixed in `f091692` (the connect moved into `_wire_equipment()`, guarded) |
+| R4 | A spawn restored HP before the effective maximum was applied and the load clamp used a hard-coded 100, so a max-health bonus item lost HP on every transition and save/load | MEDIUM | fixed in `f091692` (stats applied first; the load clamp uses the effective ceiling) |
+| R5 | Weapon profiles were not validated to declare `damage == 0` | LOW | fixed in `f091692` (validation rule) |
+| R6 | A negative `max_health_bonus` could produce an undying actor with a 0 HP ceiling | LOW | fixed in `f091692` (negatives rejected, HP floor raised to 1) |
+| R7 | `sell_price == buy_price` for `base_value == 1` | LOW | fixed in `f091692` (tradable requires `base_value >= 2`) |
+| R8 | Frozen-contract drift: the plan listed `stock_of()`/`CODE_NO_STOCK` and the ADR mentioned a stock counter | LOW | fixed in `f091692` (docs match the shipped unlimited stock) |
+| R9 | The shop panel mutated the trade service directly instead of through a session operation | LOW | fixed in `f091692` (`GameSession.bind_shop/close_shop/buy_item/sell_item`) |
+| R10 | Equipment load warnings never reached the boot result | LOW | fixed in `f091692` (`EquipmentState.load_warnings()` is appended) |
+| R11 | `equip()` ignored the swapped-out item's `add()` result, so an invalid record could be destroyed | LOW | fixed in `f091692` (the removal is undone) |
+| R12 | `CharacterStats.setup()` with an invalid definition kept stale ready values on an already-ready instance | LOW | fixed in `f091692` (the state is cleared and listeners are notified) |
+| R13 | An all-ignored modifier dictionary stored a no-op bucket | LOW | fixed in `f091692` (the bucket is removed) |
+| R14 | Stale fixture comments claimed `new_game()` leaves equipment unbound | LOW | fixed in `f091692` |
+| R15 | AC-41 had no direct evidence for movement speed following the stat | LOW | fixed in `f091692` (`test_loadout_binding.gd`) |
+| R16 | Merchant stock entries embed copies of item resources, so a hand-edited copy could drift | LOW | fixed in `f091692` (the registry refuses a stock copy that differs from the manifest item) |
+| R17 | Duplicate row names for two copies of the same non-stackable item, and a duplicated `inventory_changed` emission per trade | INFO | accepted (cosmetic; the panels re-read live models) |
+| R18 | The unarmed damage number appears both in `PlayerDefinition.attack_damage` and in the unarmed profile | INFO | accepted and asserted by `test_sprint04_content.gd` (the stat is authoritative; the profile copy is kept equal on purpose) |
