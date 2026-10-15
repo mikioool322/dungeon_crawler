@@ -131,9 +131,25 @@ a completion; the session seeds the start dungeons so dungeon 01 stays available
 | W2 | `DungeonService`, session/router/host integration, `EnemyBrain.objective_id`, Main boot fallback | coordinator | done |
 | W3 | Dungeon 02 scene + objective marker in dungeon 01 | coordinator | done |
 | W4 | Content: 2 dungeons, 5 new rewards, manifest via the generator | coordinator | done |
-| W5 | Hub board + selection panel + UI input focus | `godot-specialist` | in progress |
-| W6 | Test updates (Sprint 02 expectations) + Sprint 03 suites + manual checklist | coordinator + `gameplay-engineer` | in progress |
-| W7 | Independent review + fixes + re-validation | `reviewer` | planned |
+| W5 | Hub board + selection panel + UI input focus | `godot-specialist` | done (90fb5eb) |
+| W6 | Test updates (Sprint 02 expectations) + Sprint 03 suites + manual checklist | coordinator + `gameplay-engineer` | done (676d3ba, dae194f) |
+| W7 | Independent QA: gate/boot/completion integration, mutation checks, manual checklist | `qa-engineer` | in progress |
+| W8 | Independent review + fixes + re-validation | `reviewer` | planned |
+
+### Defects found and fixed during Sprint 03
+
+| Defect | Found by | Fix |
+|--------|----------|-----|
+| `ContentRegistry` read the stable id from a property named `id`, but `DungeonDefinition` carries `dungeon_id` (per the owner's spec), so every dungeon looked like "empty id" | content generator run | per-kind `ID_PROPERTIES` map used by the collector |
+| `Array[StringName].sort()` does **not** order StringName elements in Godot 4, so `DungeonProgress`/`DungeonRunState` serialised in insertion order while documenting "sorted" | the new domain tests | explicit `sort_custom` string comparison (deterministic save diffs) |
+| `MIGRATIONS[1]` did not drop the legacy v1 `claimed_reward_keys` although ADR-013 and the plan said it must | the test worktree agent | the migration clears the key list (story claims cannot exist in v1) |
+| Sprint 02 tests asserted absolute gold amounts and persistent regular-reward keys that ADR-012/013 replaced | the suite after the core change | expectations updated to delta-based and ledger-aware assertions (run keys must NOT persist, the story key must) — superseded duplicate-prevention checks were re-expressed as the stronger "the new run can earn again, the story reward cannot" |
+
+### Graphical QA
+
+`GRAPHICAL_QA: NOT RUN` — no graphical session was performed in this environment; every headless
+check (suite, import, boot smoke, pack validation) is green, and the manual checklist
+(`tests/manual/sprint03_checklist.md`) records the visual/feel items as NOT RUN.
 
 ## Sprint 02 expectations that must change (ADR-012 rule 7, not a weakening)
 
