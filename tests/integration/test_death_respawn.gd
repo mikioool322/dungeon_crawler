@@ -4,8 +4,9 @@ extends "res://tests/test_case.gd"
 ##
 ## The live rig dies in the dungeon through the real `HealthComponent`; the router's
 ## own death handler must respawn in the hub at its default spawn with full HP while
-## inventory, gold and claimed keys survive. The dead rig must be freed by the
-## ordinary world swap (no in-place revive, no leaked `PlayerController`).
+## inventory, gold and *story* reward claims survive (a run-scoped claim is discarded
+## with the aborted run, ADR-013/ADR-014). The dead rig must be freed by the ordinary
+## world swap (no in-place revive, no leaked `PlayerController`).
 ##
 ## The lethal hit is applied directly with a test `DamageRequest` (the Sprint 01
 ## suite already proves the 9-hit natural route in the arena); the death signal,
@@ -102,14 +103,38 @@ func test_lethal_damage_in_the_dungeon_respawns_in_the_hub_with_progress_kept() 
 	assert_not_null(salve, "the shipped salve definition exists")
 	if salve == null:
 		return
-	var reward := RewardDefinition.new()
-	reward.id = &"reward.tests.death"
-	reward.item = salve
-	reward.item_count = 2
-	reward.gold = 7
-	assert_true(reward.is_valid(), "the test reward is valid")
-	var grant := LootGrant.from_reward(LootGrant.key_for(DUNGEON_WORLD, &"tests.death"), reward)
-	assert_eq(_main.session.loot.grant(grant), LootService.CODE_GRANTED, "the run holds real progress")
+	var story_reward := RewardDefinition.new()
+	story_reward.id = &"reward.tests.death_story"
+	story_reward.item = salve
+	story_reward.item_count = 2
+	story_reward.gold = 7
+	assert_true(story_reward.is_valid(), "the story test reward is valid")
+	var story_key := LootGrant.key_for(&"dungeon.01", &"tests.death_story")
+	var story_grant := LootGrant.from_reward(story_key, story_reward, LootGrant.SCOPE_STORY)
+	assert_eq(
+		_main.session.loot.grant(story_grant),
+		LootService.CODE_GRANTED,
+		"the story reward is claimed for the save"
+	)
+
+	var run_reward := RewardDefinition.new()
+	run_reward.id = &"reward.tests.death_run"
+	run_reward.item = salve
+	run_reward.item_count = 1
+	run_reward.gold = 3
+	assert_true(run_reward.is_valid(), "the run test reward is valid")
+	var run_key := LootGrant.key_for(DUNGEON_WORLD, &"tests.death_run")
+	var run_grant := LootGrant.from_reward(run_key, run_reward)
+	assert_eq(
+		_main.session.loot.grant(run_grant),
+		LootService.CODE_GRANTED,
+		"the active run earns an ordinary reward too"
+	)
+	assert_true(_main.session.loot.is_claimed_in_run(run_key), "the run ledger holds the ordinary key")
+	assert_false(
+		_main.session.state.is_claimed(run_key), "the ordinary key never reaches the save ledger"
+	)
+	assert_true(_main.session.state.is_claimed(story_key), "the story key is in the persistent ledger")
 
 	var dead_player := _main.router.current_player()
 	assert_not_null(dead_player, "the router owns the dungeon rig")
@@ -163,9 +188,25 @@ func test_lethal_damage_in_the_dungeon_respawns_in_the_hub_with_progress_kept() 
 	assert_eq(_main.session.state.world_id, HUB_WORLD, "the session records the hub")
 	assert_eq(_main.session.state.spawn_id, &"spawn.hub.start", "and the hub default spawn id")
 
-	assert_eq(_main.session.state.gold, 7, "gold survived the death")
-	assert_eq(_main.session.state.inventory.count_of(SALVE), 2, "the inventory survived the death")
-	assert_true(_main.session.state.is_claimed(grant.grant_key), "the claimed reward key survived")
+	assert_eq(_main.session.state.gold, 10, "gold survived the death (7 story + 3 run)")
+	assert_eq(_main.session.state.inventory.count_of(SALVE), 3, "the inventory survived the death")
+	assert_true(_main.session.state.is_claimed(story_key), "the story reward key survived the death")
+	assert_false(
+		_main.session.state.is_claimed(run_key), "the ordinary run key was never persistent"
+	)
+	assert_false(
+		_main.session.loot.is_claimed_in_run(run_key), "the run-scoped claim was discarded with the run"
+	)
+	assert_eq(
+		_main.session.state.claimed_reward_keys.size(), 1, "only the story claim remains persistent"
+	)
+	assert_eq(_main.session.loot.current_run_id(), 0, "no run ledger is open after the respawn")
+	assert_null(_main.session.dungeons.active_run(), "the death aborted the run (ADR-014)")
+	assert_eq(
+		_main.session.loot.grant(story_grant),
+		LootService.CODE_DUPLICATE,
+		"the story reward can never be earned twice"
+	)
 
 	# --- no leaked actors ------------------------------------------------------
 	await wait_process_frames(3)

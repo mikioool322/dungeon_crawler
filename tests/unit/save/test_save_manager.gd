@@ -191,16 +191,71 @@ func test_an_unusable_shape_is_corrupt() -> void:
 
 
 func test_an_old_version_without_a_migration_is_reported() -> void:
+	# Version 0 has no migration path; version 1 does (v1 -> v2, ADR-010/ADR-012).
 	var data := _snapshot(70.0, 2).to_dict()
-	data["version"] = SaveSnapshot.CURRENT_VERSION - 1
+	data["version"] = 0
 	_write_raw(JSON.stringify(data))
 	var result := _manager.load_snapshot()
+	assert_eq(result.status, SaveResult.Status.CORRUPT, "an unmigratable version is unusable data")
 	assert_false(result.ok(), "an unmigratable version does not load")
 	assert_null(result.snapshot, "no snapshot is produced")
 	assert_ne(result.message, "", "a clear diagnostic is reported")
 	assert_true(
 		result.message.contains("version"),
 		"the diagnostic mentions the version: %s" % result.message
+	)
+	assert_true(
+		result.message.contains("no migration path"),
+		"and says there is no path: %s" % result.message
+	)
+	assert_false(FileAccess.file_exists(_path), "the unusable file is moved out of the way")
+	assert_true(
+		FileAccess.file_exists(_path + QUARANTINE_SUFFIX), "and quarantined like any corrupt save"
+	)
+
+
+func test_a_v1_file_migrates_to_v2_and_drops_the_legacy_reward_keys() -> void:
+	## Sprint 03 (ADR-012/ADR-013): version 1 had a single persistent loot ledger whose
+	## keys were all regular-reward keys with no story meaning. The migration adds an
+	## empty `dungeon_progress` section, drops those legacy keys, and never invents a
+	## completion; the session then seeds the start dungeons.
+	var data := {
+		"version": 1,
+		"health": 42.0,
+		"gold": 9,
+		"items": [{"id": "item.minor_salve", "count": 2}],
+		"world_id": "world.dungeon.proto01",
+		"spawn_id": "spawn.dungeon.entry",
+		"claimed_reward_keys": [
+			"world.dungeon.proto01/enemy.a",
+			"world.dungeon.proto01/chest.a",
+		],
+	}
+	_write_raw(JSON.stringify(data, "\t"))
+
+	var result := _manager.load_snapshot()
+	assert_true(result.ok(), "a v1 file migrates and loads: %s" % result.message)
+	assert_not_null(result.snapshot, "the migration produces a snapshot")
+	if result.snapshot == null:
+		return
+	assert_eq(result.snapshot.version, SaveSnapshot.CURRENT_VERSION, "the snapshot reports the current version")
+	assert_eq(result.snapshot.version, 2, "Sprint 03 saves are version 2")
+	assert_true(
+		result.snapshot.dungeon_progress.is_empty(),
+		"the migration adds an empty dungeon_progress section: %s" % result.snapshot.dungeon_progress
+	)
+	assert_true(
+		result.snapshot.claimed_reward_keys.is_empty(),
+		"the legacy v1 reward keys are dropped: %s" % result.snapshot.claimed_reward_keys
+	)
+	assert_almost_eq(result.snapshot.health, 42.0, 0.0001, "v1 health survives the migration")
+	assert_eq(result.snapshot.gold, 9, "v1 gold survives the migration")
+	assert_eq(result.snapshot.world_id, &"world.dungeon.proto01", "the v1 world id survives")
+	assert_eq(result.snapshot.spawn_id, &"spawn.dungeon.entry", "the v1 spawn id survives")
+	assert_eq(result.snapshot.items.size(), 1, "the v1 inventory survives")
+	assert_true(FileAccess.file_exists(_path), "a valid v1 save keeps its slot")
+	assert_false(
+		FileAccess.file_exists(_path + QUARANTINE_SUFFIX), "and is never quarantined"
 	)
 
 

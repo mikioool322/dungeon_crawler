@@ -84,12 +84,37 @@ func test_loot_grant_emits_gold_and_inventory_changes() -> void:
 	_session.gold_changed.connect(func(gold: int) -> void: gold_events.append(gold))
 	_session.inventory_changed.connect(func() -> void: inventory_events.append(1))
 
+	_session.loot.begin_run(1)  # scene loot is run-scoped since Sprint 03 (ADR-013)
 	var key := LootGrant.key_for(&"world.test", &"enemy.a")
 	var code := _session.loot.grant(LootGrant.from_reward(key, _reward()))
 	assert_eq(code, LootService.CODE_GRANTED, "the grant applies")
 	assert_eq(gold_events, [4] as Array[int], "the session reports the new gold exactly once")
 	assert_eq(inventory_events.size(), 1, "and the bag change exactly once")
 	assert_eq(_session.state.inventory.count_of(&"item.test_salve"), 1, "the item is in the bag")
+	assert_true(_session.loot.is_claimed_in_run(key), "the run ledger holds the key")
+	assert_true(_session.state.claimed_reward_keys.is_empty(), "the save file gains no run claim")
+
+
+func test_a_story_grant_is_persisted_and_re_emitted() -> void:
+	var gold_events: Array[int] = []
+	_session.gold_changed.connect(func(gold: int) -> void: gold_events.append(gold))
+
+	var key := LootGrant.key_for(&"dungeon.test.start", &"reward.story")
+	var grant := LootGrant.from_reward(key, _reward(), LootGrant.SCOPE_STORY)
+	assert_eq(
+		_session.loot.grant(grant),
+		LootService.CODE_GRANTED,
+		"a story grant applies without an active run"
+	)
+	assert_eq(_session.state.gold, 4, "the gold landed")
+	assert_true(_session.state.is_claimed(key), "the story key is in the persistent ledger")
+	assert_eq(gold_events, [4] as Array[int], "and the session re-emitted the gold change")
+	assert_eq(
+		_session.loot.grant(grant),
+		LootService.CODE_DUPLICATE,
+		"a second story grant is a duplicate"
+	)
+	assert_eq(gold_events, [4] as Array[int], "and never re-emits")
 
 
 func test_setup_can_run_twice_without_double_connecting() -> void:

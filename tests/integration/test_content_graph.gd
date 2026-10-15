@@ -1,8 +1,10 @@
 extends "res://tests/test_case.gd"
 
 ## AC-24/AC-29 — the shipped content graph is valid and frozen: every id resolves,
-## every portal destination exists, spawn ids are unique per world, and the loot
-## sources are authored exactly once (ADR-009, ADR-011).
+## every portal destination exists, spawn ids are unique per world, the loot sources
+## are authored exactly once, and the Sprint 03 dungeon graph is complete (one start
+## dungeon, one unlock, resolvable worlds/entry spawns/objectives/rewards) (ADR-009,
+## ADR-011, ADR-012).
 
 const MANIFEST_PATH := "res://content/definitions/content_manifest.tres"
 
@@ -32,7 +34,131 @@ func test_the_shipped_manifest_is_valid() -> void:
 	var registry := _registry()
 	assert_true(registry.is_valid(), "no authoring problems: %s" % registry.errors)
 	assert_eq(registry.errors.size(), 0, "the error list is empty")
-	assert_eq(registry.all_worlds().size(), 2, "two worlds ship in Sprint 02")
+	assert_eq(registry.all_worlds().size(), 3, "three worlds ship in Sprint 03")
+	assert_eq(registry.all_dungeons().size(), 2, "two dungeons ship in Sprint 03")
+
+
+func test_the_shipped_dungeon_graph_has_one_start_and_one_unlock() -> void:
+	var registry := _registry()
+	var start_dungeons := registry.start_dungeons()
+	assert_eq(start_dungeons.size(), 1, "exactly one dungeon is available at the start")
+	if start_dungeons.size() == 1:
+		assert_eq(start_dungeons[0].dungeon_id, &"dungeon.01", "dungeon.01 is the start dungeon")
+
+	var first := registry.find_dungeon(&"dungeon.01")
+	var second := registry.find_dungeon(&"dungeon.02")
+	assert_not_null(first, "dungeon.01 exists")
+	assert_not_null(second, "dungeon.02 exists")
+	if first == null or second == null:
+		return
+	assert_true(first.is_start_dungeon(), "dungeon.01 needs no earlier completion")
+	assert_false(second.is_start_dungeon(), "dungeon.02 is not a start dungeon")
+	assert_eq(
+		second.prerequisites,
+		[&"dungeon.01"] as Array[StringName],
+		"dungeon.02 requires dungeon.01"
+	)
+	assert_eq(
+		first.first_clear_unlocks,
+		[&"dungeon.02"] as Array[StringName],
+		"dungeon.01's first clear unlocks dungeon.02"
+	)
+	assert_true(first.repeatable, "dungeon.01 is repeatable (ADR-012)")
+	assert_true(second.repeatable, "dungeon.02 is repeatable (ADR-012)")
+
+
+func test_every_dungeon_points_at_a_loadable_world_and_entry_spawn() -> void:
+	var registry := _registry()
+	for dungeon in registry.all_dungeons():
+		var world := registry.find_world(dungeon.world_id)
+		assert_not_null(
+			world,
+			"dungeon '%s' world '%s' is listed in the manifest" % [dungeon.dungeon_id, dungeon.world_id]
+		)
+		if world == null or world.scene == null:
+			continue
+		var instance := _world_instance(world)
+		assert_not_null(
+			instance, "dungeon '%s' world scene instantiates as a WorldHost" % dungeon.dungeon_id
+		)
+		if instance == null:
+			continue
+		assert_not_null(
+			instance.resolve_spawn(dungeon.entry_spawn_id),
+			"dungeon '%s' entry spawn '%s' exists in '%s'" % [
+				dungeon.dungeon_id, dungeon.entry_spawn_id, world.id
+			]
+		)
+
+
+func test_every_completion_objective_matches_an_enemy_placement() -> void:
+	var registry := _registry()
+	for dungeon in registry.all_dungeons():
+		assert_ne(
+			dungeon.completion_objective,
+			&"",
+			"dungeon '%s' declares a completion objective" % dungeon.dungeon_id
+		)
+		var world := registry.find_world(dungeon.world_id)
+		if world == null or world.scene == null:
+			continue
+		var instance := _world_instance(world)
+		if instance == null:
+			continue
+		var matching := 0
+		for node in instance.find_children("*", "CharacterBody3D", true, false):
+			if not (node is EnemyBrain):
+				continue
+			var enemy := node as EnemyBrain
+			if enemy.objective_id == &"":
+				continue
+			assert_eq(
+				enemy.objective_id,
+				dungeon.completion_objective,
+				"enemy '%s' in '%s' reports the dungeon's objective id" % [enemy.name, world.id]
+			)
+			matching += 1
+		assert_true(
+			matching >= 1,
+			"dungeon '%s' has an enemy placement reporting '%s' in '%s'" % [
+				dungeon.dungeon_id, dungeon.completion_objective, world.id
+			]
+		)
+
+
+func test_every_dungeon_reward_reference_resolves() -> void:
+	var registry := _registry()
+	for dungeon in registry.all_dungeons():
+		assert_ne(
+			dungeon.regular_reward_id,
+			&"",
+			"dungeon '%s' declares a regular reward" % dungeon.dungeon_id
+		)
+		assert_ne(
+			dungeon.first_clear_reward_id,
+			&"",
+			"dungeon '%s' declares a first-clear reward" % dungeon.dungeon_id
+		)
+		var regular := registry.find_reward(dungeon.regular_reward_id)
+		assert_not_null(
+			regular,
+			"dungeon '%s' regular reward '%s' is listed" % [
+				dungeon.dungeon_id, dungeon.regular_reward_id
+			]
+		)
+		if regular != null:
+			assert_true(regular.is_valid(), "the regular reward '%s' is valid data" % regular.id)
+		var first_clear := registry.find_reward(dungeon.first_clear_reward_id)
+		assert_not_null(
+			first_clear,
+			"dungeon '%s' first-clear reward '%s' is listed" % [
+				dungeon.dungeon_id, dungeon.first_clear_reward_id
+			]
+		)
+		if first_clear != null:
+			assert_true(
+				first_clear.is_valid(), "the first-clear reward '%s' is valid data" % first_clear.id
+			)
 
 
 func test_shipped_items_and_rewards_match_the_frozen_numbers() -> void:
