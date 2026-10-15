@@ -136,6 +136,8 @@ func can_buy(item_id)/buy(item_id)/can_sell(item_id)/sell(item_id) -> StringName
 | Save v3 | `tests/unit/save/test_save_v3_equipment.gd` | round trip, v2->v3, v1->v2->v3, malformed sections, future version, corrupt quarantine |
 | Panels | `tests/integration/test_inventory_panel.gd`, `tests/integration/test_shop_panel.gd` | rows, operations, refusals, one screen owner, input restore |
 | End to end | `tests/integration/test_sprint04_loop.gd` | the owner's whole loop on the real bootstrap scene |
+| Loadout binding | `tests/integration/test_loadout_binding.gd` | the change signal after a real boot, the effective maximum across a spawn and a load, movement speed from the stat |
+| Independent QA | `tests/unit/stats/test_s04_qa_*.gd`, `tests/unit/equipment/test_s04_qa_*.gd`, `tests/unit/trade/test_s04_qa_*.gd`, `tests/integration/test_s04_qa_*.gd` | 49 adversarial tests: cycle stress, copy conservation, exploit attempts, pin under change, ray range/LOS, migrations through the session, dungeon regression with equipment |
 | Manual/graphical | `tests/manual/sprint04_checklist.md` | M1-M18 and the carried-over H1-H5, all NOT RUN without a window |
 
 ## Acceptance criteria

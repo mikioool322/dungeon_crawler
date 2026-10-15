@@ -51,7 +51,7 @@ is the only save point, `TAB` opens the character panel, `E` interacts, `ESC` cl
 | AC-38 | Combat damage comes from the stats for a stats owner and from the profile for an enemy; a swing pins its profile and damage | `tests/integration/test_stats_combat.gd` |
 | AC-39 | Defense mitigation: identity at zero, monotonic, never zero for a positive hit | `tests/integration/test_stats_combat.gd` |
 | AC-40 | Max-HP changes clamp without healing and without a `died` report | `tests/integration/test_stats_combat.gd` |
-| AC-41 | Movement speed follows the effective stat; the shipped scene value is the default | `tests/integration/test_stats_combat.gd`, `tests/integration/test_player_movement.gd` |
+| AC-41 | Movement speed follows the effective stat; the shipped scene value is the default | `tests/integration/test_loadout_binding.gd::test_movement_speed_follows_the_effective_stat`, `tests/integration/test_player_movement.gd` |
 | AC-42 | Trading: one price rule, atomic refusals, no duplication, gold never negative | `tests/unit/trade/test_trading_service.gd` |
 | AC-43 | Shipped content graph: player, weapons, armour, sellable loot, merchant, hub NPC, cross-references | `tests/integration/test_sprint04_content.gd` |
 | AC-44 | Save v3: equipment round trip, v2->v3, v1->v2->v3, malformed sections, future version refused, corrupt quarantine | `tests/unit/save/test_save_v3_equipment.gd`, `tests/integration/test_save_round_trip.gd` |
@@ -62,18 +62,23 @@ is the only save point, `TAB` opens the character panel, `E` interacts, `ESC` cl
 ## Mutation checks
 
 Each mutation is applied by hand, the suite is run, the failing tests are recorded, and the mutation
-is reverted before anything is committed. A mutation that nothing catches is a coverage gap. The
-runs below are executed by the **independent QA pass**; the "caught by" column is filled from that
-run's report, not from the authors' expectation.
+is reverted (`git checkout -- <file>`) before anything is committed; after every revert the full
+suite was green again. A mutation that nothing catches is a coverage gap. The runs below were
+executed by the **independent QA pass** on its own branch (`feat/s04-qa`), not by the authors.
 
-| # | Mutation | Caught by (QA evidence) | Reverted |
-|---|----------|------------------------|----------|
-| 1 | `CharacterStats.set_modifiers` accumulates instead of replacing | pending independent QA report | pending |
-| 2 | `EquipmentState.equip` fills the slot without taking the copy out of the bag | pending independent QA report | pending |
-| 3 | `AttackController.request_attack` does not pin the damage | pending independent QA report | pending |
-| 4 | `TradingService.buy` trusts the caller instead of re-validating | pending independent QA report | pending |
-| 5 | `SaveManager._migrate_v2_to_v3` invents a starting weapon | pending independent QA report | pending |
-| 6 | `HealthComponent.set_max_health` heals to the new maximum | pending independent QA report | pending |
+| # | Mutation | Caught by (QA evidence: failing tests) | Reverted |
+|---|----------|----------------------------------------|----------|
+| 1 | `CharacterStats.set_modifiers` accumulates instead of replacing | 12 failing, incl. `test_s04_qa_stats::test_swapping_the_same_bucket_never_accumulates`, `test_character_stats::test_replacing_a_bucket_never_accumulates`, `test_inventory_panel::test_equip_moves_the_item_into_the_slot_and_raises_the_effective_attack`, `test_sprint04_loop::test_the_full_sprint04_loop` | yes (583/5288/0) |
+| 2 | `EquipmentState.equip` fills the slot without taking the copy out of the bag | 16 failing, incl. `test_equipment_state::test_equipping_moves_the_item_out_of_the_bag`, `test_s04_qa_equipment::test_copy_conservation_through_a_full_swap_chain`, `test_trading_service::test_selling_an_equipped_item_is_refused`, `test_sprint04_loop` | yes (583/5288/0) |
+| 3 | `AttackController` reads the live damage at the hit frame instead of the pinned value | 3 failing: `test_s04_qa_combat::test_a_change_during_windup_cannot_alter_the_swing`, `test_stats_combat::test_a_mid_swing_stat_change_cannot_alter_the_swing`, `test_stats_combat::test_a_mid_swing_weapon_change_cannot_alter_reach_or_timing` | yes (583/5288/0) |
+| 4 | `TradingService.buy` trusts the caller instead of re-validating | 9 failing, incl. `test_s04_qa_trading::test_buy_revalidates_when_the_purse_changed_after_can_buy`, `test_trading_service::test_buying_without_enough_gold_is_refused_and_changes_nothing`, `test_shop_panel::test_a_second_click_cannot_duplicate_gold_or_items` | yes (583/5288/0) |
+| 5 | `SaveManager._migrate_v2_to_v3` invents a starting weapon | 5 failing, incl. `test_save_v3_equipment::test_the_migration_never_invents_an_equipped_item`, `test_s04_qa_persistence::test_a_v2_file_loads_through_the_session_without_inventing_equipment` | yes (583/5288/0) |
+| 6 | `HealthComponent.set_max_health` heals to the new maximum | 2 failing: `test_s04_qa_combat::test_set_max_health_never_heals_clamps_and_never_reports_death`, `test_stats_combat::test_raising_max_health_does_not_heal` | yes (583/5288/0) |
+
+Independent QA branch result: `=== summary: 583 test(s), 5288 assertion(s), 0 failing test(s) ===`
+(`feat/s04-qa` @ `c35380e`, 49 new tests / 1156 new assertions). After merging that suite and
+converting its four defect markers into contract guards, master runs 596 tests / 5342 assertions /
+0 failing.
 
 ## Findings
 
@@ -87,6 +92,21 @@ run's report, not from the authors' expectation.
 | A4 | Two new HUD tests simulated input without flushing the buffer, so the second toggle could be missed | LOW | fixed in `cc610ad` (`Input.flush_buffered_events()` after every simulated action) |
 | A5 | The end-to-end loop left the dialogue panel open, which correctly blocked the player's attack input | LOW | fixed in `cc610ad` (the loop closes the panel through the real `ui_cancel` handler) |
 | A6 | `ItemDefinition.validation_errors()` gained rules; the frozen "fresh item = exactly 3 errors" test still passes because no new rule fires for default values | INFO | no action needed, covered by the existing test |
+
+### Found by the independent QA pass
+
+| # | Finding | Severity | Status |
+|---|---------|----------|--------|
+| Q1 | `equipment_changed` was dead after every real boot (the signal was connected only in `setup()`, while `new_game()`/load replace the record) | MEDIUM | fixed in `f091692`; the QA defect marker now asserts the contract (`test_s04_qa_equipment.gd`) |
+| Q2 | ADR-015's literal invariant (`is_equipped(id) => count_of(id) == 0`) was over-strong for duplicate stacks | LOW | fixed in `f091692` (ADR restated per copy); the QA test asserts the real guarantee |
+| Q3 | A spare bagged copy of an equipped item could not be sold | LOW/MEDIUM | fixed in `f091692` (`can_sell` checks the bag first); the QA marker now asserts the sale |
+| Q4 | Equipment drops were missing from the boot result warnings | LOW | fixed in `f091692` (`EquipmentState.load_warnings()` is appended); the QA marker now asserts three warnings |
+| Q5 | Stale fixture comments claimed a `new_game()` binding gap | INFO | fixed in `f091692` |
+| Q6 | QA reported the same missing-copy-on-mismatch behaviour as a loss path | — | already covered by R1; the QA test `test_from_save_dict_filters_every_damage_kind` and `test_a_v3_save_with_damaged_equipment_cannot_crash_the_boot` now pass with the deduped return |
+
+QA also proved with six mutations that the suite catches regressions (table above) and added 49 tests
+(1156 assertions) across stats, equipment, trading, combat, NPC/UI, persistence and the dungeon
+regression loop.
 
 ### Found by the independent review
 
