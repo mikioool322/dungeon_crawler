@@ -119,7 +119,8 @@ func _sorted_ids(source: Dictionary) -> Array[StringName]:
 	var ids: Array[StringName] = []
 	for id: StringName in source.keys():
 		ids.append(id)
-	ids.sort()
+	# `Array[StringName].sort()` does not order StringName elements in Godot 4.
+	ids.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
 	return ids
 
 
