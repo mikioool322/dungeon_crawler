@@ -46,6 +46,10 @@ var mouse_captured: bool = false:
 
 var _pitch: float = 0.0
 
+## False while a UI panel owns the screen; look, move and attack input are ignored
+## until `set_input_enabled(true)` restores them.
+var _input_enabled: bool = true
+
 
 func _ready() -> void:
 	if health_component != null:
@@ -55,15 +59,23 @@ func _ready() -> void:
 		mouse_captured = true
 
 
+## Blocks look/move/attack input while a UI panel owns the screen (ADR-008 UI focus).
+## Gravity, the mouse-capture flag and the `is_dead` lockout stay untouched.
+func set_input_enabled(enabled: bool) -> void:
+	_input_enabled = enabled
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if is_dead:
 		return
 	if event is InputEventMouseMotion:
-		if mouse_captured:
+		if mouse_captured and _input_enabled:
 			_look((event as InputEventMouseMotion).relative)
 		return
 	if event.is_action_pressed(&"ui_cancel"):
 		mouse_captured = false
+		return
+	if not _input_enabled:
 		return
 	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
 		# A click after `ui_cancel` brings the cursor back to the game instead of
@@ -84,8 +96,9 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= gravity * delta
 
 	# Movement input is never gated on the attack phase: backpedalling out of an
-	# enemy's reach must work mid-swing, and death is the only input lockout.
-	var direction: Vector3 = Vector3.ZERO if is_dead else _movement_direction()
+	# enemy's reach must work mid-swing; death and an open UI panel are the only
+	# input lockouts.
+	var direction: Vector3 = Vector3.ZERO if is_dead or not _input_enabled else _movement_direction()
 	velocity.x = direction.x * move_speed
 	velocity.z = direction.z * move_speed
 	move_and_slide()

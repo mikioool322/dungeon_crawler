@@ -14,6 +14,9 @@ extends CanvasLayer
 @export var status_label: Label
 @export var world_label: Label
 
+## Hub dungeon-selection panel (ADR-012); opens from the hub board, never on load.
+@export var dungeon_panel: DungeonPanel = null
+
 var _session: GameSession = null
 var _router: WorldRouter = null
 var _registry: ContentRegistry = null
@@ -37,6 +40,10 @@ func bind(session: GameSession, router: WorldRouter, registry: ContentRegistry) 
 		_connect_once(_router.player_spawned, _on_player_spawned)
 		_connect_once(_router.world_loaded, _on_world_loaded)
 		_connect_once(_router.world_load_failed, _on_world_load_failed)
+	if dungeon_panel != null:
+		dungeon_panel.bind(session, router, registry)
+		_connect_once(dungeon_panel.travel_requested, _on_travel_requested)
+		dungeon_panel.bind_player(_player)
 	_refresh_all()
 
 
@@ -49,6 +56,8 @@ func set_status(message: String) -> void:
 func bind_player(player: PlayerController) -> void:
 	_unbind_player()
 	_player = player
+	if dungeon_panel != null:
+		dungeon_panel.bind_player(_player)
 	if _player == null or not is_instance_valid(_player):
 		return
 	_health = HealthComponent.find_on(_player)
@@ -73,6 +82,8 @@ func _unbind_player() -> void:
 	_health = null
 	_interaction = null
 	_player = null
+	if dungeon_panel != null:
+		dungeon_panel.bind_player(null)
 
 
 func _connect_once(signal_ref: Signal, target: Callable) -> void:
@@ -177,10 +188,36 @@ func _on_world_loaded(world_id: StringName, spawn_id: StringName, used_fallback:
 	_refresh_world()
 	_refresh_gold()
 	_refresh_inventory()
+	_connect_board()
 	if used_fallback:
 		set_status("Requested spawn was missing; used '%s' in %s" % [spawn_id, world_id])
 	else:
 		set_status("Entered %s at %s" % [world_id, spawn_id])
+
+
+## The hub board is presentation-facing furniture: once the world that owns it is
+## loaded, its request opens the dungeon panel. The panel is never auto-opened.
+func _connect_board() -> void:
+	if dungeon_panel == null or _router == null:
+		return
+	var world := _router.current_world()
+	if not (world is WorldHost) or not world.has_signal(&"board_requested"):
+		return
+	var target := Callable(dungeon_panel, "open")
+	if not world.board_requested.is_connected(target):
+		world.board_requested.connect(target)
+
+
+## The panel only announces intent; the router owns the gate. A refusal is surfaced in
+## the status line, and the panel closes either way so the line is readable again.
+func _on_travel_requested(world_id: StringName, spawn_id: StringName) -> void:
+	var code: StringName = WorldRouter.CODE_UNKNOWN_WORLD
+	if _router != null:
+		code = _router.request_travel(world_id, spawn_id)
+	if dungeon_panel != null and dungeon_panel.is_open():
+		dungeon_panel.close()
+	if code != WorldRouter.CODE_TRAVEL_STARTED:
+		set_status("Travel to %s refused (%s)" % [world_id, code])
 
 
 func _on_world_load_failed(world_id: StringName, code: StringName) -> void:
