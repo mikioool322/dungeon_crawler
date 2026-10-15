@@ -17,6 +17,15 @@ extends CanvasLayer
 ## Hub dungeon-selection panel (ADR-012); opens from the hub board, never on load.
 @export var dungeon_panel: DungeonPanel = null
 
+## Character panel (ADR-015): bag, equipment and stats; toggled by the `inventory` action.
+@export var inventory_panel: InventoryPanel = null
+
+## NPC dialogue (ADR-017); opens from a world's `dialogue_requested`.
+@export var dialogue_panel: DialoguePanel = null
+
+## Merchant shop (ADR-017); opens from the dialogue's `shop_requested`.
+@export var shop_panel: ShopPanel = null
+
 var _session: GameSession = null
 var _router: WorldRouter = null
 var _registry: ContentRegistry = null
@@ -44,6 +53,15 @@ func bind(session: GameSession, router: WorldRouter, registry: ContentRegistry) 
 		dungeon_panel.bind(session, router, registry)
 		_connect_once(dungeon_panel.travel_requested, _on_travel_requested)
 		dungeon_panel.bind_player(_player)
+	if inventory_panel != null:
+		inventory_panel.bind(session, registry)
+		inventory_panel.bind_player(_player)
+	if shop_panel != null:
+		shop_panel.bind(session, registry)
+		shop_panel.bind_player(_player)
+	if dialogue_panel != null:
+		dialogue_panel.bind_player(_player)
+		_connect_once(dialogue_panel.shop_requested, _on_shop_requested)
 	_refresh_all()
 
 
@@ -58,6 +76,12 @@ func bind_player(player: PlayerController) -> void:
 	_player = player
 	if dungeon_panel != null:
 		dungeon_panel.bind_player(_player)
+	if inventory_panel != null:
+		inventory_panel.bind_player(_player)
+	if shop_panel != null:
+		shop_panel.bind_player(_player)
+	if dialogue_panel != null:
+		dialogue_panel.bind_player(_player)
 	if _player == null or not is_instance_valid(_player):
 		return
 	_health = HealthComponent.find_on(_player)
@@ -84,6 +108,12 @@ func _unbind_player() -> void:
 	_player = null
 	if dungeon_panel != null:
 		dungeon_panel.bind_player(null)
+	if inventory_panel != null:
+		inventory_panel.bind_player(null)
+	if shop_panel != null:
+		shop_panel.bind_player(null)
+	if dialogue_panel != null:
+		dialogue_panel.bind_player(null)
 
 
 func _connect_once(signal_ref: Signal, target: Callable) -> void:
@@ -188,24 +218,29 @@ func _on_world_loaded(world_id: StringName, spawn_id: StringName, used_fallback:
 	_refresh_world()
 	_refresh_gold()
 	_refresh_inventory()
-	_connect_board()
+	_connect_world_requests()
 	if used_fallback:
 		set_status("Requested spawn was missing; used '%s' in %s" % [spawn_id, world_id])
 	else:
 		set_status("Entered %s at %s" % [world_id, spawn_id])
 
 
-## The hub board is presentation-facing furniture: once the world that owns it is
-## loaded, its request opens the dungeon panel. The panel is never auto-opened.
-func _connect_board() -> void:
-	if dungeon_panel == null or _router == null:
+## World furniture that speaks to presentation: the hub board opens the dungeon panel
+## and an NPC opens the dialogue. Both panels are never auto-opened on load.
+func _connect_world_requests() -> void:
+	if _router == null:
 		return
 	var world := _router.current_world()
-	if not (world is WorldHost) or not world.has_signal(&"board_requested"):
+	if not (world is WorldHost):
 		return
-	var target := Callable(dungeon_panel, "open")
-	if not world.board_requested.is_connected(target):
-		world.board_requested.connect(target)
+	if dungeon_panel != null and world.has_signal(&"board_requested"):
+		var open_board := Callable(dungeon_panel, "open")
+		if not world.board_requested.is_connected(open_board):
+			world.board_requested.connect(open_board)
+	if dialogue_panel != null and world.has_signal(&"dialogue_requested"):
+		var open_dialogue := Callable(self, "_on_dialogue_requested")
+		if not world.dialogue_requested.is_connected(open_dialogue):
+			world.dialogue_requested.connect(open_dialogue)
 
 
 ## The panel only announces intent; the router owns the gate. A refusal is surfaced in
@@ -237,3 +272,60 @@ func _on_interaction_resolved(result: InteractionResult) -> void:
 		set_status(result.message)
 	elif not result.succeeded():
 		set_status("Interaction failed (%s)" % result.code)
+
+
+# --- panels: one screen owner (ADR-008 UI focus) -------------------------------
+
+## `inventory` toggles the character panel; `ui_cancel` closes whichever panel is open.
+## Each panel also consumes `ui_cancel` itself, so this is the fallback for a panel whose
+## event was not consumed.
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"inventory"):
+		_toggle_inventory()
+		# CanvasLayer has no `accept_event()`; mark it handled through the viewport.
+		var viewport := get_viewport()
+		if viewport != null:
+			viewport.set_input_as_handled()
+		return
+	if event.is_action_pressed(&"ui_cancel"):
+		_close_all_panels()
+
+
+## One screen owner: opening one panel closes every other, and pressing `inventory`
+## while the character panel is open closes it again.
+func _toggle_inventory() -> void:
+	if inventory_panel == null:
+		return
+	if inventory_panel.is_open():
+		inventory_panel.close()
+		return
+	_close_all_panels()
+	inventory_panel.open()
+
+
+func _close_all_panels() -> void:
+	if dungeon_panel != null and dungeon_panel.is_open():
+		dungeon_panel.close()
+	if inventory_panel != null and inventory_panel.is_open():
+		inventory_panel.close()
+	if shop_panel != null and shop_panel.is_open():
+		shop_panel.close()
+	if dialogue_panel != null and dialogue_panel.is_open():
+		dialogue_panel.close()
+
+
+## An NPC asked to talk: the dialogue owns the screen. Its `shop_requested` is the only
+## way into the shop, so the NPC never learns about trading.
+func _on_dialogue_requested(npc: NpcDefinition) -> void:
+	if dialogue_panel == null:
+		return
+	_close_all_panels()
+	dialogue_panel.open(npc)
+
+
+## The dialogue asked for the shop: the shop replaces it as the one open panel.
+func _on_shop_requested(merchant: MerchantDefinition) -> void:
+	if shop_panel == null:
+		return
+	_close_all_panels()
+	shop_panel.open(merchant)

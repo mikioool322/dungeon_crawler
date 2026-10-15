@@ -1,9 +1,12 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://presentation/hud/game_hud.gd" id="1_hud"]
 [ext_resource type="Script" path="res://presentation/hud/dungeon_panel.gd" id="2_dungeon_panel"]
+[ext_resource type="Script" path="res://presentation/hud/inventory_panel.gd" id="3_inventory_panel"]
+[ext_resource type="Script" path="res://presentation/hud/dialogue_panel.gd" id="4_dialogue_panel"]
+[ext_resource type="Script" path="res://presentation/hud/shop_panel.gd" id="5_shop_panel"]
 
-[node name="GameHud" type="CanvasLayer" node_paths=PackedStringArray("health_label", "gold_label", "inventory_label", "prompt_label", "status_label", "world_label", "dungeon_panel")]
+[node name="GameHud" type="CanvasLayer" node_paths=PackedStringArray("health_label", "gold_label", "inventory_label", "prompt_label", "status_label", "world_label", "dungeon_panel", "inventory_panel", "dialogue_panel", "shop_panel")]
 script = ExtResource("1_hud")
 health_label = NodePath("Status/Health")
 gold_label = NodePath("Status/Gold")
@@ -12,6 +15,9 @@ world_label = NodePath("Status/World")
 prompt_label = NodePath("Prompt")
 status_label = NodePath("StatusLine")
 dungeon_panel = NodePath("DungeonPanel")
+inventory_panel = NodePath("InventoryPanel")
+dialogue_panel = NodePath("DialoguePanel")
+shop_panel = NodePath("ShopPanel")
 
 [node name="Status" type="VBoxContainer" parent="."]
 offset_left = 12.0
@@ -76,3 +82,30 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2_dungeon_panel")
+
+[node name="InventoryPanel" type="Control" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_inventory_panel")
+
+[node name="DialoguePanel" type="Control" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_dialogue_panel")
+
+[node name="ShopPanel" type="Control" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("5_shop_panel")
