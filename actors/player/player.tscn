@@ -37,9 +37,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 [node name="Camera3D" type="Camera3D" parent="Head"]
 current = true
 
-[node name="Viewmodel" type="Node3D" parent="Head/Camera3D" node_paths=PackedStringArray("attack_controller")]
+[node name="Viewmodel" type="Node3D" parent="Head/Camera3D" node_paths=PackedStringArray("attack_controller", "blade")]
 script = ExtResource("2_player_viewmodel")
 attack_controller = NodePath("../../../AttackController")
+blade = NodePath("Blade")
 
 [node name="Blade" type="MeshInstance3D" parent="Head/Camera3D/Viewmodel"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.28, -0.22, -0.55)

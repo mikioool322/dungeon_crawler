@@ -1,35 +1,76 @@
 [gd_resource type="Resource" script_class="ContentManifest" format=3]
 
-[ext_resource type="Script" path="res://systems/combat/attack_definition.gd" id="1_0hl0v"]
-[ext_resource type="Resource" path="res://content/definitions/attack_player_basic.tres" id="2_dd8gp"]
-[ext_resource type="Resource" path="res://content/definitions/attack_enemy_basic.tres" id="3_c6dvn"]
-[ext_resource type="Script" path="res://core/dungeon/dungeon_definition.gd" id="4_xip28"]
-[ext_resource type="Resource" path="res://content/definitions/dungeon_01.tres" id="5_nnk3r"]
-[ext_resource type="Resource" path="res://content/definitions/dungeon_02.tres" id="6_0ixah"]
-[ext_resource type="Script" path="res://systems/ai/enemy_definition.gd" id="7_mn74w"]
-[ext_resource type="Resource" path="res://content/definitions/enemy_grunt.tres" id="8_mdfbh"]
-[ext_resource type="Script" path="res://core/content/item_definition.gd" id="9_de1mc"]
-[ext_resource type="Resource" path="res://content/definitions/item_rusty_dagger.tres" id="10_2b1ah"]
-[ext_resource type="Resource" path="res://content/definitions/item_minor_salve.tres" id="11_q7mts"]
-[ext_resource type="Script" path="res://core/content/reward_definition.gd" id="12_hhv6p"]
-[ext_resource type="Resource" path="res://content/definitions/reward_grunt_drop.tres" id="13_oi6e5"]
-[ext_resource type="Resource" path="res://content/definitions/reward_chest_proto01.tres" id="14_g5fcf"]
-[ext_resource type="Resource" path="res://content/definitions/reward_story_dungeon01.tres" id="15_1d08x"]
-[ext_resource type="Resource" path="res://content/definitions/reward_regular_dungeon01.tres" id="16_n3o07"]
-[ext_resource type="Resource" path="res://content/definitions/reward_story_dungeon02.tres" id="17_ihqu8"]
-[ext_resource type="Resource" path="res://content/definitions/reward_regular_dungeon02.tres" id="18_a2mpa"]
-[ext_resource type="Resource" path="res://content/definitions/reward_chest_proto02.tres" id="19_xiknl"]
-[ext_resource type="Script" path="res://systems/content/content_manifest.gd" id="20_x00en"]
-[ext_resource type="Script" path="res://core/content/world_definition.gd" id="21_iu1oe"]
-[ext_resource type="Resource" path="res://content/definitions/world_hub.tres" id="22_gj6jq"]
-[ext_resource type="Resource" path="res://content/definitions/world_dungeon_proto01.tres" id="23_a8j1a"]
-[ext_resource type="Resource" path="res://content/definitions/world_dungeon_proto02.tres" id="24_uvibi"]
+[ext_resource type="Script" path="res://systems/combat/attack_definition.gd" id="1_mn74w"]
+[ext_resource type="Resource" path="res://content/definitions/attack_player_basic.tres" id="2_mdfbh"]
+[ext_resource type="Resource" path="res://content/definitions/attack_enemy_basic.tres" id="3_de1mc"]
+[ext_resource type="Resource" path="res://content/definitions/attack_player_iron_sword.tres" id="4_2b1ah"]
+[ext_resource type="Script" path="res://core/dungeon/dungeon_definition.gd" id="5_q7mts"]
+[ext_resource type="Resource" path="res://content/definitions/dungeon_01.tres" id="6_hhv6p"]
+[ext_resource type="Resource" path="res://content/definitions/dungeon_02.tres" id="7_oi6e5"]
+[ext_resource type="Script" path="res://systems/ai/enemy_definition.gd" id="8_g5fcf"]
+[ext_resource type="Resource" path="res://content/definitions/enemy_grunt.tres" id="9_1d08x"]
+[ext_resource type="Script" path="res://core/content/item_definition.gd" id="10_n3o07"]
+[ext_resource type="Resource" path="res://content/definitions/item_rusty_dagger.tres" id="11_ihqu8"]
+[ext_resource type="Resource" path="res://content/definitions/item_minor_salve.tres" id="12_a2mpa"]
+[ext_resource type="Script" path="res://core/content/merchant_definition.gd" id="13_xiknl"]
+[ext_resource type="Resource" path="res://content/definitions/merchant_hub_smith.tres" id="14_x00en"]
+[ext_resource type="Script" path="res://core/content/npc_definition.gd" id="15_iu1oe"]
+[ext_resource type="Resource" path="res://content/definitions/npc_hub_smith.tres" id="16_gj6jq"]
+[ext_resource type="Resource" path="res://content/definitions/player_default.tres" id="17_a8j1a"]
+[ext_resource type="Script" path="res://core/content/reward_definition.gd" id="18_uvibi"]
+[ext_resource type="Resource" path="res://content/definitions/reward_grunt_drop.tres" id="19_f0yyh"]
+[ext_resource type="Resource" path="res://content/definitions/reward_chest_proto01.tres" id="20_rwwrc"]
+[ext_resource type="Resource" path="res://content/definitions/reward_story_dungeon01.tres" id="21_6fti1"]
+[ext_resource type="Resource" path="res://content/definitions/reward_regular_dungeon01.tres" id="22_ec4qs"]
+[ext_resource type="Resource" path="res://content/definitions/reward_story_dungeon02.tres" id="23_tpb8m"]
+[ext_resource type="Resource" path="res://content/definitions/reward_regular_dungeon02.tres" id="24_ggtwf"]
+[ext_resource type="Resource" path="res://content/definitions/reward_chest_proto02.tres" id="25_wpwby"]
+[ext_resource type="Script" path="res://systems/content/content_manifest.gd" id="26_rr7da"]
+[ext_resource type="Script" path="res://core/content/world_definition.gd" id="27_sp83n"]
+[ext_resource type="Resource" path="res://content/definitions/world_hub.tres" id="28_0evsv"]
+[ext_resource type="Resource" path="res://content/definitions/world_dungeon_proto01.tres" id="29_t0tfi"]
+[ext_resource type="Resource" path="res://content/definitions/world_dungeon_proto02.tres" id="30_bnne5"]
+
+[sub_resource type="Resource" id="Resource_2c046"]
+script = ExtResource("1_mn74w")
+id = &"attack.player.iron_sword"
+damage = 0.0
+reach = 2.2
+windup = 0.28
+active_window = 0.12
+recovery = 0.42
+cooldown = 0.7
+
+[sub_resource type="Resource" id="Resource_ktcij"]
+script = ExtResource("10_n3o07")
+id = &"item.iron_sword"
+display_name = "Iron Sword"
+description = "Plain, heavy, and honest about what it is for."
+kind = 2
+stackable = false
+slot = 1
+attack_bonus = 15
+attack_definition = SubResource("Resource_2c046")
+base_value = 40
+
+[sub_resource type="Resource" id="Resource_njh1y"]
+script = ExtResource("10_n3o07")
+id = &"item.leather_vest"
+display_name = "Leather Vest"
+description = "Cracked hide over a layer of rags. Better than nothing."
+stackable = false
+slot = 2
+defense_bonus = 5
+base_value = 30
 
 [resource]
-script = ExtResource("20_x00en")
-attacks = Array[ExtResource("1_0hl0v")]([ExtResource("2_dd8gp"), ExtResource("3_c6dvn")])
-enemies = Array[ExtResource("7_mn74w")]([ExtResource("8_mdfbh")])
-items = Array[ExtResource("9_de1mc")]([ExtResource("10_2b1ah"), ExtResource("11_q7mts")])
-rewards = Array[ExtResource("12_hhv6p")]([ExtResource("13_oi6e5"), ExtResource("14_g5fcf"), ExtResource("15_1d08x"), ExtResource("16_n3o07"), ExtResource("17_ihqu8"), ExtResource("18_a2mpa"), ExtResource("19_xiknl")])
-worlds = Array[ExtResource("21_iu1oe")]([ExtResource("22_gj6jq"), ExtResource("23_a8j1a"), ExtResource("24_uvibi")])
-dungeons = Array[ExtResource("4_xip28")]([ExtResource("5_nnk3r"), ExtResource("6_0ixah")])
+script = ExtResource("26_rr7da")
+attacks = Array[ExtResource("1_mn74w")]([ExtResource("2_mdfbh"), ExtResource("3_de1mc"), ExtResource("4_2b1ah")])
+enemies = Array[ExtResource("8_g5fcf")]([ExtResource("9_1d08x")])
+items = Array[ExtResource("10_n3o07")]([ExtResource("11_ihqu8"), ExtResource("12_a2mpa"), SubResource("Resource_ktcij"), SubResource("Resource_njh1y")])
+rewards = Array[ExtResource("18_uvibi")]([ExtResource("19_f0yyh"), ExtResource("20_rwwrc"), ExtResource("21_6fti1"), ExtResource("22_ec4qs"), ExtResource("23_tpb8m"), ExtResource("24_ggtwf"), ExtResource("25_wpwby")])
+worlds = Array[ExtResource("27_sp83n")]([ExtResource("28_0evsv"), ExtResource("29_t0tfi"), ExtResource("30_bnne5")])
+dungeons = Array[ExtResource("5_q7mts")]([ExtResource("6_hhv6p"), ExtResource("7_oi6e5")])
+player = ExtResource("17_a8j1a")
+merchants = Array[ExtResource("13_xiknl")]([ExtResource("14_x00en")])
+npcs = Array[ExtResource("15_iu1oe")]([ExtResource("16_gj6jq")])

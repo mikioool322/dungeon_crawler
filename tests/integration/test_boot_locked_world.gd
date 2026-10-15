@@ -273,9 +273,9 @@ func test_a_v1_save_migrates_and_keeps_the_run_state() -> void:
 	var session := main.session
 
 	assert_true(main.boot_result.ok(), "the v1 file loads and migrates: %s" % main.boot_result.message)
-	assert_eq(SaveSnapshot.CURRENT_VERSION, 2, "the current schema version is 2")
+	assert_eq(SaveSnapshot.CURRENT_VERSION, 3, "the current schema version is 3 (ADR-015 added equipment)")
 	if main.boot_result.snapshot != null:
-		assert_eq(main.boot_result.snapshot.version, 2, "the migrated snapshot is version 2")
+		assert_eq(main.boot_result.snapshot.version, 3, "a v1 file migrates through v2 to v3")
 	else:
 		fail("an OK load must carry a snapshot")
 
@@ -322,7 +322,7 @@ func test_a_v1_save_migrates_and_keeps_the_run_state() -> void:
 	# --- the migrated state is what the next save writes ----------------------
 	assert_true(session.save_now().ok(), "the migrated state saves")
 	var written := _read_save()
-	assert_eq(int(written.get("version", 0)), 2, "the rewritten file is version 2")
+	assert_eq(int(written.get("version", 0)), 3, "the rewritten file is version 3")
 	assert_eq((written.get("claimed_reward_keys", []) as Array).size(), 0, "with no legacy keys")
 	assert_true(written.has("dungeon_progress"), "and a dungeon_progress section")
 	var progress_dict: Dictionary = written.get("dungeon_progress", {})

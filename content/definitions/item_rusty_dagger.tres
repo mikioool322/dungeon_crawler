@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ItemDefinition" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemDefinition" format=3]
 
 [ext_resource type="Script" path="res://core/content/item_definition.gd" id="1_item_definition"]
 
@@ -9,4 +9,6 @@ display_name = "Rusty Dagger"
 description = "A pitted blade. Worth more as scrap than as a weapon."
 kind = 2
 stackable = false
-max_stack = 1
+slot = 1
+attack_bonus = 6
+base_value = 12

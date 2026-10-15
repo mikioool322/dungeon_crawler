@@ -19,6 +19,9 @@ const PLAYER_NODE_NAME: String = "Player"
 ## without the world layer knowing about the HUD (ADR-012).
 signal board_requested()
 
+## Re-emitted from an NPC so presentation can open the dialogue/shop (ADR-017).
+signal dialogue_requested(npc: NpcDefinition)
+
 ## Stable world id; the router cross-checks it against the WorldDefinition.
 @export var world_id: StringName = &""
 
@@ -94,6 +97,8 @@ func _bind_interactables() -> void:
 			chest.interaction_completed.connect(_on_chest_interacted.bind(chest))
 		elif node is DungeonBoardInteractable:
 			(node as DungeonBoardInteractable).board_requested.connect(_on_board_requested)
+		elif node is NpcInteractable:
+			(node as NpcInteractable).dialogue_requested.connect(_on_dialogue_requested)
 		elif node is SaveShrineInteractable:
 			(node as SaveShrineInteractable).set_save_provider(_save)
 
@@ -114,6 +119,10 @@ func _on_chest_interacted(
 
 func _on_board_requested() -> void:
 	board_requested.emit()
+
+
+func _on_dialogue_requested(npc: NpcDefinition) -> void:
+	dialogue_requested.emit(npc)
 
 
 func _bind_loot(interactable: Interactable, reward: RewardDefinition, source: StringName) -> void:

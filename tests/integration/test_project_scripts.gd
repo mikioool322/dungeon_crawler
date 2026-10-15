@@ -23,6 +23,7 @@ const ADR_005_ACTIONS: Array[StringName] = [
 	&"move_right",
 	&"attack_primary",
 	&"interact",
+	&"inventory",
 ]
 
 ## ADR-005 physics layers (amended in Sprint 02): index -> the name `project.godot` must carry.

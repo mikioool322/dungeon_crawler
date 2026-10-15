@@ -10,6 +10,7 @@ const REQUIRED_ACTIONS: Array[StringName] = [
 	&"move_right",
 	&"attack_primary",
 	&"interact",
+	&"inventory",
 ]
 
 const EXPECTED_LAYER_NAMES: Dictionary = {

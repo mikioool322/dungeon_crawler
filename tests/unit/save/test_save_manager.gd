@@ -239,7 +239,7 @@ func test_a_v1_file_migrates_to_v2_and_drops_the_legacy_reward_keys() -> void:
 	if result.snapshot == null:
 		return
 	assert_eq(result.snapshot.version, SaveSnapshot.CURRENT_VERSION, "the snapshot reports the current version")
-	assert_eq(result.snapshot.version, 2, "Sprint 03 saves are version 2")
+	assert_eq(result.snapshot.version, 3, "the migration chain reaches version 3")
 	assert_true(
 		result.snapshot.dungeon_progress.is_empty(),
 		"the migration adds an empty dungeon_progress section: %s" % result.snapshot.dungeon_progress

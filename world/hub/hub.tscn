@@ -5,6 +5,8 @@
 [ext_resource type="PackedScene" path="res://world/prefabs/portal.tscn" id="3_portal"]
 [ext_resource type="Script" path="res://world/hub/save_shrine_interactable.gd" id="4_shrine"]
 [ext_resource type="Script" path="res://world/hub/dungeon_board_interactable.gd" id="5_board"]
+[ext_resource type="Script" path="res://systems/interaction/npc_interactable.gd" id="6_npc"]
+[ext_resource type="Resource" path="res://content/definitions/npc_hub_smith.tres" id="7_npc_def"]
 
 [sub_resource type="Environment" id="Environment_hub"]
 background_mode = 1
@@ -51,6 +53,19 @@ size = Vector3(1.2, 1.4, 1.2)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_board"]
 size = Vector3(1.6, 1.6, 0.3)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_npc"]
+radius = 0.5
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_npc"]
+albedo_color = Color(0.5, 0.42, 0.35, 1)
+roughness = 0.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_npc"]
+material = SubResource("StandardMaterial3D_npc")
+radius = 0.4
+height = 1.7
 
 [sub_resource type="BoxMesh" id="BoxMesh_floor"]
 material = SubResource("StandardMaterial3D_stone")
@@ -208,6 +223,29 @@ mesh = SubResource("BoxMesh_board")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.2, 5.5)
 script = ExtResource("2_spawn_marker")
 spawn_id = &"spawn.hub.board"
+
+[node name="MerchantNpc" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -3)
+collision_layer = 16
+collision_mask = 0
+monitoring = false
+script = ExtResource("6_npc")
+prompt = "Talk"
+one_shot = false
+npc = ExtResource("7_npc_def")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MerchantNpc"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_npc")
+
+[node name="Body" type="MeshInstance3D" parent="MerchantNpc"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+mesh = SubResource("CapsuleMesh_npc")
+
+[node name="SpawnMerchant" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0.2, -1.5)
+script = ExtResource("2_spawn_marker")
+spawn_id = &"spawn.hub.merchant"
 
 [node name="SpawnStart" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 8)

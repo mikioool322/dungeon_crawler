@@ -159,7 +159,7 @@ func test_hp_inventory_gold_and_location_round_trip_through_the_save_file() -> v
 		assert_eq(
 			data.get("version"), SaveSnapshot.CURRENT_VERSION, "the file declares the current schema version"
 		)
-		assert_eq(data.get("version"), 2, "Sprint 03 saves are version 2")
+		assert_eq(data.get("version"), 3, "the file declares the current schema version (3 since ADR-015)")
 		assert_true(data.has("dungeon_progress"), "the file carries the dungeon progress section")
 
 	# Load through the same public pipeline into a fresh session.

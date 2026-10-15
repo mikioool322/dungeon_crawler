@@ -43,8 +43,12 @@ var mouse_captured: bool = false:
 @onready var head: Node3D = $Head
 @onready var health_component: HealthComponent = $HealthComponent
 @onready var attack_controller: AttackController = $AttackController
+@onready var viewmodel: PlayerViewModel = get_node_or_null(^"Head/Camera3D/Viewmodel") as PlayerViewModel
 
 var _pitch: float = 0.0
+
+## Effective stats (ADR-015): movement speed follows them; null keeps the scene value.
+var _stats: CharacterStats = null
 
 ## False while a UI panel owns the screen; look, move and attack input are ignored
 ## until `set_input_enabled(true)` restores them.
@@ -122,6 +126,31 @@ func _movement_direction() -> Vector3:
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
 	return direction
+
+
+## Binds the effective stats: the walking speed follows `movement_speed` and re-applies
+## whenever the stats change (equipment). A null or unready source keeps the scene value.
+func set_stats(value: CharacterStats) -> void:
+	if _stats != null and _stats.changed.is_connected(_apply_stats):
+		_stats.changed.disconnect(_apply_stats)
+	_stats = value
+	if _stats != null:
+		if not _stats.changed.is_connected(_apply_stats):
+			_stats.changed.connect(_apply_stats)
+		_apply_stats()
+
+
+## Presentation-only weapon swap (ADR-016): the viewmodel shows what is equipped, and
+## nothing here times an attack or touches the evade mechanic.
+func set_weapon_visual(item_id: StringName) -> void:
+	if viewmodel != null:
+		viewmodel.set_weapon(item_id, item_id != &"")
+
+
+func _apply_stats() -> void:
+	if _stats == null or not _stats.is_ready():
+		return
+	move_speed = maxf(0.01, _stats.effective(CharacterStats.MOVEMENT_SPEED))
 
 
 func _on_health_died(_request: DamageRequest) -> void:

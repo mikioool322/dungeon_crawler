@@ -17,6 +17,12 @@ signal gold_changed(gold: int)
 signal inventory_changed()
 signal location_changed(world_id: StringName, spawn_id: StringName)
 
+## Equipment changed (equip/unequip/load): panels refresh from the models.
+signal equipment_changed()
+
+## Effective stats changed (equipment, load, new game): rigs re-read them.
+signal stats_changed()
+
 ## Default world for a new or unrecoverable run.
 const DEFAULT_WORLD_ID: StringName = &"world.hub"
 
@@ -31,6 +37,13 @@ var loot: LootService = LootService.new()
 var progress: DungeonProgress = DungeonProgress.new()
 var dungeons: DungeonService = DungeonService.new()
 
+## Effective character stats (ADR-015): derived from the player definition plus the
+## equipment, never saved. Rebuilt on new game and on load.
+var stats: CharacterStats = CharacterStats.new()
+
+## Trade service (ADR-017): the only writer of gold/inventory for a transaction.
+var trading: TradingService = TradingService.new()
+
 var _registry: ContentRegistry = null
 var _save_manager: SaveManager = null
 
@@ -41,10 +54,99 @@ func setup(registry: ContentRegistry, save_manager: SaveManager) -> void:
 	_save_manager = save_manager
 	loot.setup(state, registry)
 	dungeons.setup(registry, progress, loot)
+	state.equipment.setup(registry, state.inventory)
+	trading.setup(state, registry, state.equipment)
+	_build_stats()
 	if not state.inventory.changed.is_connected(_on_inventory_changed):
 		state.inventory.changed.connect(_on_inventory_changed)
 	if not loot.reward_granted.is_connected(_on_reward_granted):
 		loot.reward_granted.connect(_on_reward_granted)
+	if not state.equipment.changed.is_connected(_on_equipment_changed):
+		state.equipment.changed.connect(_on_equipment_changed)
+	if not stats.changed.is_connected(_on_stats_changed):
+		stats.changed.connect(_on_stats_changed)
+	if not trading.trade_completed.is_connected(_on_trade_completed):
+		trading.trade_completed.connect(_on_trade_completed)
+
+
+## Builds the effective stats from the manifest's player definition and the equipment.
+func _build_stats() -> void:
+	if _registry == null:
+		return
+	stats.setup(_registry.player_definition())
+	_sync_equipment_modifiers()
+
+
+## Rebuilds the stat modifier buckets from the current equipment (ADR-015). One bucket
+## per slot: a swap replaces the bucket, so a bonus can never accumulate.
+func _sync_equipment_modifiers() -> void:
+	if not stats.is_ready():
+		return
+	var by_source := state.equipment.modifiers_by_source()
+	for slot in EquipmentSlot.SUPPORTED:
+		var source := EquipmentSlot.name_of(slot)
+		if not by_source.has(source):
+			stats.clear_modifiers(source)
+	for source: StringName in by_source:
+		stats.set_modifiers(source, by_source[source] as Dictionary)
+
+
+## Equips a bagged item. The only equip entry point (panels call this).
+func equip_item(item_id: StringName) -> StringName:
+	var definition := _registry.find_item(item_id) if _registry != null else null
+	if definition == null:
+		return EquipmentState.CODE_UNKNOWN_ITEM
+	var code := state.equipment.equip(item_id, definition.slot)
+	if code == EquipmentState.CODE_OK:
+		_sync_equipment_modifiers()
+	return code
+
+
+## Unequips a slot, returning the item to the bag.
+func unequip_slot(slot: int) -> StringName:
+	var code := state.equipment.unequip(slot)
+	if code == EquipmentState.CODE_OK:
+		_sync_equipment_modifiers()
+	return code
+
+
+## Pushes the effective stats into a freshly spawned rig (ADR-016). Must run after the
+## rig is inside the tree: `HealthComponent._ready()` resets HP to the scene maximum.
+func apply_stats_to_player(player: Node3D) -> bool:
+	if player == null or not stats.is_ready():
+		if player != null:
+			push_warning("GameSession: stats are not ready; the rig keeps its scene values")
+		return false
+	var health := HealthComponent.find_on(player)
+	if health != null:
+		health.set_max_health(stats.effective(CharacterStats.MAX_HEALTH))
+		health.set_defense_provider(stats)
+	var controller := player as PlayerController
+	if controller != null:
+		controller.set_stats(stats)
+		controller.set_weapon_visual(_equipped_weapon_id())
+	var attack := player.get_node_or_null("AttackController") as AttackController
+	if attack != null:
+		attack.set_stats(stats)
+		attack.set_attack_profile(_active_attack_profile())
+	return true
+
+
+## The equipped main-hand item id, or empty.
+func _equipped_weapon_id() -> StringName:
+	return state.equipment.get_equipped(EquipmentSlot.Id.MAIN_HAND)
+
+
+## The weapon's profile when one is equipped, else the player definition's default.
+func _active_attack_profile() -> AttackDefinition:
+	var weapon := state.equipment.weapon_attack_definition()
+	if weapon != null:
+		return weapon
+	if _registry != null:
+		var definition := _registry.player_definition()
+		if definition != null:
+			return definition.attack_definition
+	return null
 
 
 func registry() -> ContentRegistry:
@@ -61,8 +163,10 @@ func new_game() -> void:
 	state.world_id = DEFAULT_WORLD_ID
 	state.spawn_id = &""
 	progress.reset_to_new_game(_start_dungeon_ids())
+	_sync_equipment_modifiers()
 	gold_changed.emit(state.gold)
 	inventory_changed.emit()
+	equipment_changed.emit()
 	location_changed.emit(state.world_id, state.spawn_id)
 
 
@@ -141,10 +245,12 @@ func add_gold(amount: int) -> int:
 	return state.gold
 
 
-## Full health for the next life. Used by the router's death path (ADR-007) so the
-## durable-state write stays in this class.
+## Full health for the next life, using the current effective maximum (ADR-007/ADR-015).
 func restore_full_health() -> void:
-	state.health = DEFAULT_MAX_HEALTH
+	if stats.is_ready():
+		state.health = stats.effective(CharacterStats.MAX_HEALTH)
+	else:
+		state.health = DEFAULT_MAX_HEALTH
 
 
 func to_snapshot() -> SaveSnapshot:
@@ -161,6 +267,7 @@ func to_snapshot() -> SaveSnapshot:
 	keys.sort()
 	snapshot.claimed_reward_keys = PackedStringArray(keys)
 	snapshot.dungeon_progress = progress.to_save_dict()
+	snapshot.equipment = state.equipment.to_save_dict()
 	return snapshot
 
 
@@ -213,6 +320,7 @@ func apply_snapshot(snapshot: SaveSnapshot) -> PackedStringArray:
 		state.claimed_reward_keys[reward_key] = true
 
 	_apply_progress(snapshot, warnings)
+	_apply_equipment(snapshot, warnings)
 
 	var world_id: StringName = snapshot.world_id
 	if world_id == &"" or _registry.find_world(world_id) == null:
@@ -249,6 +357,16 @@ func _apply_progress(snapshot: SaveSnapshot, warnings: PackedStringArray) -> voi
 	dungeons.setup(_registry, progress, loot)
 
 
+## Rebuilds the equipment from the save (ADR-015/ADR-016): the equipment record is
+## authoritative, unknown ids/slots are dropped with warnings, and the effective stats are
+## recomputed from the definition plus the surviving equipment.
+func _apply_equipment(snapshot: SaveSnapshot, warnings: PackedStringArray) -> void:
+	if _registry == null:
+		return
+	state.equipment = EquipmentState.from_save_dict(snapshot.equipment, _registry, state.inventory)
+	_sync_equipment_modifiers()
+
+
 ## Dungeons a new game starts with (definitions without prerequisites).
 func _start_dungeon_ids() -> Array[StringName]:
 	if _registry == null:
@@ -270,6 +388,22 @@ func _is_known_reward_key(key: StringName) -> bool:
 
 func _on_inventory_changed() -> void:
 	inventory_changed.emit()
+
+
+## Equipment changed: rebuild the modifier buckets, then tell panels and rigs.
+func _on_equipment_changed() -> void:
+	_sync_equipment_modifiers()
+	equipment_changed.emit()
+
+
+func _on_stats_changed() -> void:
+	stats_changed.emit()
+
+
+## A trade moved gold and the bag: re-emit the session-level notifications.
+func _on_trade_completed(_kind: StringName, _item_id: StringName, _price: int, gold_total: int) -> void:
+	inventory_changed.emit()
+	gold_changed.emit(gold_total)
 
 
 ## `LootService` writes gold directly; re-emit so every listener (the HUD included)

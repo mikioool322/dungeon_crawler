@@ -14,7 +14,7 @@ extends RefCounted
 ##   the loader can refuse it before the data is used.
 ## - Content is referenced by stable ids only, never by display name or asset path.
 
-const CURRENT_VERSION: int = 2
+const CURRENT_VERSION: int = 3
 
 ## Every key a usable snapshot dictionary must carry. `dungeon_progress` is optional:
 ## a version 1 shape (or a hand-written file) yields empty progress, and the session
@@ -50,6 +50,11 @@ var claimed_reward_keys: PackedStringArray = PackedStringArray()
 ## snapshot.
 var dungeon_progress: Dictionary = {}
 
+## Durable equipment (ADR-015/ADR-016): stable slot name -> item id. Empty means "nothing
+## equipped" (a version 1/2 save migrates to an empty map, never to an invented item).
+## Effective stats are NOT stored: they are recomputed from the definition plus this map.
+var equipment: Dictionary = {}
+
 
 ## Serialises to a plain JSON-compatible dictionary. Item entries that are not
 ## `{"id": ..., "count": ...}` are dropped instead of being written as junk.
@@ -63,6 +68,7 @@ func to_dict() -> Dictionary:
 		"spawn_id": spawn_id,
 		"claimed_reward_keys": claimed_reward_keys,
 		"dungeon_progress": dungeon_progress,
+		"equipment": equipment,
 	}
 
 
@@ -98,6 +104,7 @@ static func from_dict(data: Dictionary) -> SaveSnapshot:
 	snapshot.spawn_id = spawn_value
 	snapshot.claimed_reward_keys = keys_value
 	snapshot.dungeon_progress = _read_progress(data.get("dungeon_progress"))
+	snapshot.equipment = _read_progress(data.get("equipment"))
 	return snapshot
 
 

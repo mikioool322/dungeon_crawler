@@ -19,6 +19,8 @@ const KIND_ITEM: String = "item"
 const KIND_REWARD: String = "reward"
 const KIND_WORLD: String = "world"
 const KIND_DUNGEON: String = "dungeon"
+const KIND_MERCHANT: String = "merchant"
+const KIND_NPC: String = "npc"
 
 ## Members that distinguish a kind are no longer probed by name: every entry is
 ## checked against its concrete class in `_matches_kind()`.
@@ -31,6 +33,8 @@ const BUCKET_NAMES: Dictionary = {
 	KIND_REWARD: "rewards",
 	KIND_WORLD: "worlds",
 	KIND_DUNGEON: "dungeons",
+	KIND_MERCHANT: "merchants",
+	KIND_NPC: "npcs",
 }
 
 ## Property that carries the stable id per kind. Dungeons use `dungeon_id` (ADR-012),
@@ -42,6 +46,8 @@ const ID_PROPERTIES: Dictionary = {
 	KIND_REWARD: "id",
 	KIND_WORLD: "id",
 	KIND_DUNGEON: "dungeon_id",
+	KIND_MERCHANT: "id",
+	KIND_NPC: "id",
 }
 
 ## Every authoring problem found while building, in manifest order.
@@ -53,6 +59,9 @@ var _items: Dictionary = {}
 var _rewards: Dictionary = {}
 var _worlds: Dictionary = {}
 var _dungeons: Dictionary = {}
+var _merchants: Dictionary = {}
+var _npcs: Dictionary = {}
+var _player: PlayerDefinition = null
 
 
 ## Indexes a manifest. Never null: a null manifest builds an empty, invalid registry.
@@ -67,8 +76,23 @@ static func build(manifest: ContentManifest) -> ContentRegistry:
 	registry._collect(KIND_REWARD, manifest.rewards, registry._rewards)
 	registry._collect(KIND_WORLD, manifest.worlds, registry._worlds)
 	registry._collect(KIND_DUNGEON, manifest.dungeons, registry._dungeons)
+	registry._collect(KIND_MERCHANT, manifest.merchants, registry._merchants)
+	registry._collect(KIND_NPC, manifest.npcs, registry._npcs)
+	registry._read_player(manifest.player)
 	registry._check_cross_references()
 	return registry
+
+
+## The player definition is a single field: exactly one player character ships in Sprint 04.
+## Optional at the registry level so hand-built test manifests stay valid; the shipped
+## content test asserts it is present, and a session without one degrades to the rig's
+## scene values with a warning instead of crashing.
+func _read_player(definition: PlayerDefinition) -> void:
+	if definition == null:
+		return
+	for problem in definition.validation_errors():
+		errors.append("player: %s" % problem)
+	_player = definition
 
 
 func is_valid() -> bool:
@@ -149,6 +173,33 @@ func find_dungeon_for_world(world_id: StringName) -> DungeonDefinition:
 	return null
 
 
+## The shipped player definition, or null when the manifest has none.
+func player_definition() -> PlayerDefinition:
+	return _player
+
+
+func find_merchant(id: StringName) -> MerchantDefinition:
+	return _merchants.get(id) as MerchantDefinition
+
+
+func all_merchants() -> Array[MerchantDefinition]:
+	var merchants: Array[MerchantDefinition] = []
+	for value: Variant in _merchants.values():
+		merchants.append(value as MerchantDefinition)
+	return merchants
+
+
+func find_npc(id: StringName) -> NpcDefinition:
+	return _npcs.get(id) as NpcDefinition
+
+
+func all_npcs() -> Array[NpcDefinition]:
+	var npcs: Array[NpcDefinition] = []
+	for value: Variant in _npcs.values():
+		npcs.append(value as NpcDefinition)
+	return npcs
+
+
 func _to_string() -> String:
 	return "ContentRegistry(attacks=%d, enemies=%d, items=%d, rewards=%d, worlds=%d, errors=%d)" % [
 		_attacks.size(), _enemies.size(), _items.size(), _rewards.size(), _worlds.size(), errors.size()
@@ -199,6 +250,10 @@ static func _matches_kind(kind: String, definition: Resource) -> bool:
 			return definition is WorldDefinition
 		KIND_DUNGEON:
 			return definition is DungeonDefinition
+		KIND_MERCHANT:
+			return definition is MerchantDefinition
+		KIND_NPC:
+			return definition is NpcDefinition
 	return false
 
 
@@ -245,6 +300,45 @@ func _check_cross_references() -> void:
 			])
 
 	_check_dungeon_references()
+	_check_player_references()
+	_check_merchant_references()
+	_check_npc_references()
+
+
+## Every weapon profile an item references must be a listed attack definition.
+func _check_player_references() -> void:
+	for item_id: StringName in _items:
+		var item := _items[item_id] as ItemDefinition
+		if item.attack_definition != null and not _attacks.has(item.attack_definition.id):
+			errors.append("item '%s': attack_definition '%s' is not listed in the manifest" % [
+				item_id, item.attack_definition.id
+			])
+	if _player != null and _player.attack_definition != null:
+		if not _attacks.has(_player.attack_definition.id):
+			errors.append("player: attack_definition '%s' is not listed in the manifest" % [
+				_player.attack_definition.id
+			])
+
+
+func _check_merchant_references() -> void:
+	for merchant_id: StringName in _merchants:
+		var merchant := _merchants[merchant_id] as MerchantDefinition
+		for item: ItemDefinition in merchant.stock:
+			if item == null:
+				errors.append("merchant '%s': stock contains a null item" % merchant_id)
+			elif not _items.has(item.id):
+				errors.append("merchant '%s': stock item '%s' is not listed in the manifest" % [
+					merchant_id, item.id
+				])
+
+
+func _check_npc_references() -> void:
+	for npc_id: StringName in _npcs:
+		var npc := _npcs[npc_id] as NpcDefinition
+		if npc.merchant != null and not _merchants.has(npc.merchant.id):
+			errors.append("npc '%s': merchant '%s' is not listed in the manifest" % [
+				npc_id, npc.merchant.id
+			])
 
 
 ## Dungeon cross-references plus the progression graph: a dungeon that can never be

@@ -344,3 +344,85 @@ a second service for story rewards.
 Consequences: one lifecycle owner, one gate, one completion seam; a future objective type only has to
 report its own objective id; the board reads progress and never decides unlocks.
 
+## ADR-005 addendum (Sprint 04)
+
+The closed lists gain the action `inventory` (physical TAB): it opens/closes the character panel
+(inventory + equipment + stats), while `ui_cancel` closes any open panel. No new layer is added;
+`interactable` stays layer 5. The single-writer rule and the lock tests are unchanged
+(`tools/setup_input_map.gd` regenerates the list, `tests/unit/test_project_contract.gd` and
+`tests/integration/test_project_scripts.gd` lock it).
+
+## ADR-015 - Character stats, equipment ownership and stat modifiers
+Status: accepted (Sprint 04).
+Context: Sprint 04 needs base stats, equipment that changes them, and a durable record of what is
+worn, without turning into a modifier framework or breaking the count-based inventory.
+Decision:
+- `PlayerDefinition` (content, manifest bucket `players`) owns the base stats and the default attack
+  profile. `CharacterStats` (derived runtime, owned by `GameSession`) computes
+  `effective = max(MINIMUM[stat], base + sum(buckets))`; it is additive only, and `set_modifiers()`
+  *replaces* one source's bucket, so repeated equip can never stack a bonus.
+- One bucket per equipment slot, keyed by the stable slot name: a weapon swap replaces the
+  `main_hand` bucket, which is how the old bonus disappears. No bookkeeping, no unbounded buckets.
+- Ownership semantics A: an equipped item leaves the bag (`equip` removes one copy, `unequip` returns
+  it, a swap returns the previous item in the same atomic operation). The invariant
+  `is_equipped(id) => count_of(id) == 0` is local and testable, the count-based `Inventory` API is
+  untouched, and selling an equipped item is impossible by construction.
+- `EquipmentState` is durable runtime state inside `PlayerSessionState`, Node-free, and serialised as
+  stable slot names -> item ids. On load the equipment record is authoritative: an unknown id or slot
+  is dropped with a warning, a slot mismatch returns the copy to the bag, and a bagged duplicate is
+  removed (the record wins).
+- `CharacterStats` is never saved: it is recomputed from the definition plus the equipment.
+- `HealthComponent.set_max_health()` raises the ceiling without healing and clamps current HP down
+  without emitting `died`; stats are applied to a freshly spawned rig **after** `add_child`, because
+  the component resets to the scene maximum in `_ready()`.
+Rejected: per-instance item identity (the inventory has no instance ids); a modifier framework with
+multiplicative/conditional sources (the bucket seam already allows a future source to register);
+persisting effective stats.
+Consequences: adding a future slot or stat is a data plus enum change; buffs/debuffs later only need
+another `set_modifiers(source_id, ...)` caller.
+
+## ADR-016 - Combat integration: swing snapshot, stat-driven damage and receiver-side defense
+Status: accepted (Sprint 04).
+Context: Equipment must change damage and mitigation without rebuilding combat, and a weapon change
+must not alter a swing that is already resolving.
+Decision:
+- The stats owner's swing damage is `stats.effective(ATTACK_DAMAGE)`; an actor without stats (every
+  enemy) keeps `AttackDefinition.damage`. A weapon's `AttackDefinition` owns reach, arc and timings
+  only and must declare `damage == 0`, so the same number never has two sources.
+- `AttackController.request_attack()` pins the active profile **and** the damage value for the whole
+  swing; phase timings, reach, arc, the hit-frame damage and the cooldown that follows all read the
+  pin, so a mid-swing weapon change cannot affect the swing and cannot bypass the cooldown.
+- Mitigation lives on the receiver: `HealthComponent` subtracts via
+  `amount * (100 / (100 + defense))`, with `defense >= 0` clamped from the provider. The formula is
+  monotonic, never reduces a positive hit to zero, and with `defense == 0` (every actor without
+  stats, including the player before armour) it is identical to the previous behaviour.
+- The viewmodel only reacts to the equipment change (visibility/scale of a placeholder); it never
+  times an attack and never participates in the evade-by-leaving-reach mechanic.
+Rejected: attacker-side mitigation (the attacker would need the target's stats); a subtractive
+formula (armour could reach immunity); reading the damage live at the hit frame (a mid-swing swap
+would change it).
+Consequences: combat keeps its ownership of phases, reach, cooldowns, hit validation and damage
+application; Sprint 01/02 combat suites pass unchanged.
+
+## ADR-017 - NPC and trading contract
+Status: accepted (Sprint 04).
+Context: One hub merchant must sell and buy items without giving the NPC knowledge of the player, the
+bag, the save or combat, and without opening gold exploits.
+Decision:
+- `NpcDefinition` (id, display name, one greeting line, optional `MerchantDefinition`) and
+  `NpcInteractable` (an `Interactable` subclass) emit `dialogue_requested`; the world host re-emits it
+  and the HUD opens a dialogue panel with an optional shop button. The NPC never reads gold, the bag,
+  the save or the player controller.
+- `TradingService` is the only trade writer and the only place with a price rule:
+  `buy_price = ItemDefinition.base_value`, `sell_price = max(1, floor(base_value * SELL_RATE))` with
+  `SELL_RATE = 0.5`; `base_value <= 0` means "not tradable". The UI only reads prices.
+- Stock is transient per merchant binding (Sprint 04: unlimited stock of the configured items, one
+  counter per item), never saved: a reload resets stock and gold together, so no buy/sell loop exists.
+- Every operation re-validates internally (never trusting `can_buy`/`can_sell`), and is atomic:
+  full validation, then bag, then gold, then stock, then the signal. A refusal mutates nothing; a
+  duplicate UI event fails on the second attempt (stock or gold).
+Rejected: per-merchant inventory in the save (a new writer and more surface); price computation in the
+UI or the NPC; a shop database or backend.
+Consequences: a future vendor only needs another `MerchantDefinition` plus a placement; dynamic
+economy, reputation and dialogue trees stay out of scope.
+

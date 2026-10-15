@@ -137,6 +137,8 @@ func request_attack() -> bool:
 	_swing_elapsed = 0.0
 	_last_result = null
 	_abort_reason = &""
+	_swing_profile = _active_profile()
+	_swing_damage = _effective_damage(_swing_profile)
 	_enter_phase(Phase.WINDUP)
 	return true
 
@@ -191,7 +193,31 @@ func _enter_phase(next: Phase) -> void:
 	phase_changed.emit(phase)
 
 
-## The single hit query of this swing. Called once, on the first ACTIVE tick.
+## Optional stat source (the player rig): when set and ready, the swing damage comes from
+## `effective(attack_damage)` instead of the profile (ADR-016).
+var _stats: CharacterStats = null
+
+## Optional weapon profile (reach/arc/timings) that overrides `definition` while equipped.
+var _attack_profile: AttackDefinition = null
+
+## The swing's pinned profile and damage, taken at `request_attack()`: a weapon change in
+## the middle of a swing cannot alter reach, timings, the hit-frame damage or the cooldown.
+var _swing_profile: AttackDefinition = null
+var _swing_damage: float = 0.0
+
+
+## Binds the stat source; null keeps the profile's own damage (enemies).
+func set_stats(stats: CharacterStats) -> void:
+	_stats = stats
+
+
+## Binds the equipped weapon's attack profile; null falls back to `definition`.
+func set_attack_profile(profile: AttackDefinition) -> void:
+	_attack_profile = profile
+
+
+func attack_profile() -> AttackDefinition:
+	return _active_profile()
 func _resolve_hit() -> void:
 	var result := _query_and_apply()
 	_last_result = result
@@ -201,9 +227,14 @@ func _resolve_hit() -> void:
 func _query_and_apply() -> DamageResult:
 	if hit_detector == null or hit_origin == null:
 		return DamageResult.miss(&"", DamageResult.REASON_NO_TARGET)
+	# The swing's pinned profile and damage (ADR-016): resolution never re-reads the
+	# equipped weapon, so a mid-swing change cannot alter this swing.
+	var profile := _swing_profile if _swing_profile != null else definition
+	if profile == null:
+		return DamageResult.miss(&"", DamageResult.REASON_NO_TARGET)
 	var origin: Vector3 = hit_origin.global_transform.origin
 	var candidates := hit_detector.query_hits(
-		definition, hit_origin.global_transform, _excluded_rids()
+		profile, hit_origin.global_transform, _excluded_rids()
 	)
 	if candidates.is_empty():
 		return DamageResult.miss(&"", DamageResult.REASON_NO_TARGET)
@@ -213,12 +244,12 @@ func _query_and_apply() -> DamageResult:
 	var primary: DamageResult = null
 	for candidate in candidates:
 		if not MeleeRules.within_arc(
-			origin, forward, candidate.contact_point, definition.hit_arc_degrees
+			origin, forward, candidate.contact_point, profile.hit_arc_degrees
 		):
 			rejection = _first_rejection(rejection, DamageResult.REASON_OUT_OF_ARC)
 			continue
 		if not MeleeRules.within_reach(
-			origin, candidate.contact_point, definition.reach, definition.hit_radius
+			origin, candidate.contact_point, profile.reach, profile.hit_radius
 		):
 			rejection = _first_rejection(rejection, DamageResult.REASON_OUT_OF_REACH)
 			continue
@@ -241,9 +272,9 @@ func _query_and_apply() -> DamageResult:
 			rejection = _first_rejection(rejection, DamageResult.REASON_DUPLICATE)
 			continue
 		var request := DamageRequest.new(
-			definition.id,
+			profile.id,
 			source_id,
-			definition.damage,
+			_swing_damage,
 			candidate.contact_point,
 			Vector3.UP
 		)
@@ -288,17 +319,41 @@ func _find_owner_body() -> CollisionObject3D:
 	return null
 
 
+## The profile a new swing would use: the equipped weapon's, else the base definition.
+## Only a valid profile can be pinned, so a broken weapon resource cannot break combat.
+func _active_profile() -> AttackDefinition:
+	if _attack_profile != null and _attack_profile.is_valid():
+		return _attack_profile
+	return definition
+
+
+## Damage for one swing: the stats owner's effective attack damage, else the profile's own
+## (ADR-016). Always finite and >= 0.
+func _effective_damage(profile: AttackDefinition) -> float:
+	var base: float = profile.damage if profile != null else 0.0
+	if _stats == null or not _stats.is_ready():
+		return maxf(0.0, base)
+	var value: float = _stats.effective(CharacterStats.ATTACK_DAMAGE)
+	if not is_finite(value):
+		return maxf(0.0, base)
+	return maxf(0.0, value)
+
+
 func _definition_windup() -> float:
-	return definition.windup if definition != null else 0.0
+	var profile := _swing_profile if _swing_profile != null else definition
+	return profile.windup if profile != null else 0.0
 
 
 func _definition_active_window() -> float:
-	return definition.active_window if definition != null else 0.0
+	var profile := _swing_profile if _swing_profile != null else definition
+	return profile.active_window if profile != null else 0.0
 
 
 func _definition_recovery() -> float:
-	return definition.recovery if definition != null else 0.0
+	var profile := _swing_profile if _swing_profile != null else definition
+	return profile.recovery if profile != null else 0.0
 
 
 func _definition_cooldown() -> float:
-	return definition.cooldown if definition != null else 0.0
+	var profile := _swing_profile if _swing_profile != null else definition
+	return profile.cooldown if profile != null else 0.0

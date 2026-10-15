@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ItemDefinition" format=3]
+
+[ext_resource type="Script" path="res://core/content/item_definition.gd" id="1_arscn"]
+
+[resource]
+script = ExtResource("1_arscn")
+id = &"item.leather_vest"
+display_name = "Leather Vest"
+description = "Cracked hide over a layer of rags. Better than nothing."
+stackable = false
+slot = 2
+defense_bonus = 5
+base_value = 30

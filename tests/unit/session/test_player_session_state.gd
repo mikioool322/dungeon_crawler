@@ -16,7 +16,7 @@ const ITEM_ID := &"item.minor_salve"
 
 ## The script's own fields, exactly; a new field must be a deliberate contract change.
 const EXPECTED_FIELDS: Array[String] = [
-	"claimed_reward_keys", "gold", "health", "inventory", "spawn_id", "world_id"
+	"claimed_reward_keys", "equipment", "gold", "health", "inventory", "spawn_id", "world_id"
 ]
 
 
@@ -136,8 +136,9 @@ func test_state_exposes_only_the_documented_node_free_fields() -> void:
 		assert_false(value is Node, "%s must never hold a Node" % name)
 		if typeof(value) == TYPE_OBJECT:
 			assert_true(
-				value is Inventory,
-				"%s may only hold the bag, not a scene object (got %s)" % [name, value]
+				value is Inventory or value is EquipmentState,
+				"%s may only hold a domain object (bag or equipment), not a scene object (got %s)"
+				% [name, value]
 			)
 		else:
 			assert_true(

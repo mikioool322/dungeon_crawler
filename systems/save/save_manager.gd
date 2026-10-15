@@ -26,6 +26,7 @@ const DEFAULT_PATH: String = "user://save_slot0.json"
 ## the extension point.
 static var MIGRATIONS: Dictionary = {
 	1: Callable(SaveManager, "_migrate_v1_to_v2"),
+	2: Callable(SaveManager, "_migrate_v2_to_v3"),
 }
 
 
@@ -42,6 +43,16 @@ static func _migrate_v1_to_v2(data: Dictionary) -> Dictionary:
 	# transient run ledger, so keeping them would only leave dead persistent data.
 	# Story claims cannot exist in v1, so nothing meaningful is lost.
 	migrated["claimed_reward_keys"] = []
+	return migrated
+
+
+## Version 2 had no equipment record. Never invent an item: an old save starts
+## unarmoured and the player equips what the bag already holds (ADR-015/ADR-016).
+static func _migrate_v2_to_v3(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	migrated["version"] = 3
+	if not migrated.has("equipment"):
+		migrated["equipment"] = {}
 	return migrated
 
 const TMP_SUFFIX: String = ".tmp"

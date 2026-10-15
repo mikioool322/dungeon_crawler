@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PlayerDefinition" format=3]
+
+[ext_resource type="Resource" path="res://content/definitions/attack_player_basic.tres" id="1_7ps6t"]
+[ext_resource type="Script" path="res://core/stats/player_definition.gd" id="2_gskeu"]
+
+[resource]
+script = ExtResource("2_gskeu")
+attack_definition = ExtResource("1_7ps6t")

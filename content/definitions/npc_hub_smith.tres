@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="NpcDefinition" format=3]
+
+[ext_resource type="Script" path="res://core/content/merchant_definition.gd" id="1_n0mvp"]
+[ext_resource type="Script" path="res://core/content/item_definition.gd" id="2_luwyf"]
+[ext_resource type="Script" path="res://systems/combat/attack_definition.gd" id="3_u3v47"]
+[ext_resource type="Script" path="res://core/content/npc_definition.gd" id="4_7dvkx"]
+
+[sub_resource type="Resource" id="Resource_2c046"]
+script = ExtResource("3_u3v47")
+id = &"attack.player.iron_sword"
+damage = 0.0
+reach = 2.2
+windup = 0.28
+active_window = 0.12
+recovery = 0.42
+cooldown = 0.7
+
+[sub_resource type="Resource" id="Resource_ktcij"]
+script = ExtResource("2_luwyf")
+id = &"item.iron_sword"
+display_name = "Iron Sword"
+description = "Plain, heavy, and honest about what it is for."
+kind = 2
+stackable = false
+slot = 1
+attack_bonus = 15
+attack_definition = SubResource("Resource_2c046")
+base_value = 40
+
+[sub_resource type="Resource" id="Resource_njh1y"]
+script = ExtResource("2_luwyf")
+id = &"item.leather_vest"
+display_name = "Leather Vest"
+description = "Cracked hide over a layer of rags. Better than nothing."
+stackable = false
+slot = 2
+defense_bonus = 5
+base_value = 30
+
+[sub_resource type="Resource" id="Resource_n0mvp"]
+script = ExtResource("1_n0mvp")
+id = &"merchant.hub.smith"
+display_name = "Orla the Smith"
+greeting = "Steel for coin. Nothing else worth saying."
+stock = Array[ExtResource("2_luwyf")]([SubResource("Resource_ktcij"), SubResource("Resource_njh1y")])
+
+[resource]
+script = ExtResource("4_7dvkx")
+id = &"npc.hub.smith"
+display_name = "Orla the Smith"
+greeting = "Back again? The forge does not run on goodwill."
+merchant = SubResource("Resource_n0mvp")

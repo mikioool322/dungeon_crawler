@@ -32,6 +32,9 @@ var spawn_id: StringName = &""
 ## Claimed loot keys: `StringName -> true`.
 var claimed_reward_keys: Dictionary = {}
 
+## Durable equipment record (ADR-015). Node-free; serialised as stable slot names.
+var equipment: EquipmentState = EquipmentState.new()
+
 
 ## Rebuilds the documented new-game defaults.
 ##
@@ -47,6 +50,8 @@ func reset_to_new_game(default_health: float) -> void:
 	else:
 		inventory.clear()
 	claimed_reward_keys = {}
+	# The bag was just cleared, so nothing can be worn: a new game starts unarmoured.
+	equipment = EquipmentState.new()
 	world_id = &"world.hub"
 	spawn_id = &""
 

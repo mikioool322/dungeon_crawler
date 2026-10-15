@@ -30,3 +30,12 @@ extends Resource
 
 ## Dungeons, indexed by `DungeonDefinition.dungeon_id` (ADR-012).
 @export var dungeons: Array[DungeonDefinition] = []
+
+## The player character definition (ADR-015); exactly one ships in Sprint 04.
+@export var player: PlayerDefinition = null
+
+## Merchants, indexed by `MerchantDefinition.id` (ADR-017).
+@export var merchants: Array[MerchantDefinition] = []
+
+## NPCs, indexed by `NpcDefinition.id` (ADR-017).
+@export var npcs: Array[NpcDefinition] = []

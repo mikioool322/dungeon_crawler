@@ -16,6 +16,12 @@ extends Node3D
 ## Attack source whose phases drive the pose. Assigned in `player.tscn`.
 @export var attack_controller: AttackController
 
+## Blade mesh whose tint follows the equipped weapon (placeholder, ADR-016).
+@export var blade: MeshInstance3D = null
+
+## Stable id of the shown weapon; empty means "unarmed".
+var _weapon_id: StringName = &""
+
 ## Local offset in camera space while the attack winds up (pull back).
 @export var windup_offset: Vector3 = Vector3(-0.04, 0.06, 0.14)
 
@@ -38,6 +44,26 @@ var _rest_position: Vector3 = Vector3.ZERO
 var _rest_rotation: Vector3 = Vector3.ZERO
 var _target_offset: Vector3 = Vector3.ZERO
 var _target_rotation: Vector3 = Vector3.ZERO
+
+
+## Placeholder weapon swap: shows or hides the rig and tints the blade deterministically
+## from the item id, so a graphical check can see which weapon is equipped. Presentation
+## only: no timing, no reach, no damage, and no hardcoded item ids.
+func set_weapon(item_id: StringName, has_weapon: bool) -> void:
+	_weapon_id = item_id if has_weapon else &""
+	visible = has_weapon
+	if blade == null or not has_weapon:
+		return
+	var hue := float(abs(String(item_id).hash()) % 360) / 360.0
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color.from_hsv(hue, 0.35, 0.7)
+	material.metallic = 0.4
+	# A per-instance copy: the shared scene material is never mutated.
+	blade.material_override = material
+
+
+func weapon_id() -> StringName:
+	return _weapon_id
 
 
 func _ready() -> void:

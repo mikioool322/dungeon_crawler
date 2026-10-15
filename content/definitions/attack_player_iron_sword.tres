@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="AttackDefinition" format=3]
+
+[ext_resource type="Script" path="res://systems/combat/attack_definition.gd" id="1_4ds8h"]
+
+[resource]
+script = ExtResource("1_4ds8h")
+id = &"attack.player.iron_sword"
+damage = 0.0
+reach = 2.2
+windup = 0.28
+active_window = 0.12
+recovery = 0.42
+cooldown = 0.7

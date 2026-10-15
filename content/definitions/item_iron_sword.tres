@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="ItemDefinition" format=3]
+
+[ext_resource type="Script" path="res://systems/combat/attack_definition.gd" id="1_80mqs"]
+[ext_resource type="Script" path="res://core/content/item_definition.gd" id="2_qurxt"]
+
+[sub_resource type="Resource" id="Resource_2c046"]
+script = ExtResource("1_80mqs")
+id = &"attack.player.iron_sword"
+damage = 0.0
+reach = 2.2
+windup = 0.28
+active_window = 0.12
+recovery = 0.42
+cooldown = 0.7
+
+[resource]
+script = ExtResource("2_qurxt")
+id = &"item.iron_sword"
+display_name = "Iron Sword"
+description = "Plain, heavy, and honest about what it is for."
+kind = 2
+stackable = false
+slot = 1
+attack_bonus = 15
+attack_definition = SubResource("Resource_2c046")
+base_value = 40

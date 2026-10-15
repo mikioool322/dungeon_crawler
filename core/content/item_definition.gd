@@ -38,6 +38,47 @@ enum Kind { MISC, CONSUMABLE, WEAPON, KEY }
 ## Optional presentation texture; never needed by gameplay rules.
 @export var icon: Texture2D = null
 
+## Equipment slot this item may occupy (`EquipmentSlot.Id`); `NONE` = not equippable.
+@export var slot: int = EquipmentSlot.Id.NONE
+
+## Additive equipment modifiers (ADR-015). The item is the single source of its own
+## numbers: the character panel, the combat snapshot and the save round trip all read
+## these fields instead of re-deriving them somewhere else.
+@export var attack_bonus: int = 0
+@export var defense_bonus: int = 0
+@export var max_health_bonus: int = 0
+@export var movement_bonus: float = 0.0
+
+## Weapons only: the attack profile (reach, radius, timings) this weapon swings with.
+## Null means "use the character's default profile".
+@export var attack_definition: AttackDefinition = null
+
+## Merchant pricing base, in whole gold. `0` means the item cannot be traded.
+@export var base_value: int = 0
+
+
+## Additive modifiers this item contributes while equipped, keyed by `CharacterStats`
+## stat ids. Empty for a non-equippable item.
+func equipment_modifiers() -> Dictionary:
+	var modifiers: Dictionary = {}
+	if attack_bonus != 0:
+		modifiers[CharacterStats.ATTACK_DAMAGE] = float(attack_bonus)
+	if defense_bonus != 0:
+		modifiers[CharacterStats.DEFENSE] = float(defense_bonus)
+	if max_health_bonus != 0:
+		modifiers[CharacterStats.MAX_HEALTH] = float(max_health_bonus)
+	if movement_bonus != 0.0:
+		modifiers[CharacterStats.MOVEMENT_SPEED] = movement_bonus
+	return modifiers
+
+
+func is_equippable() -> bool:
+	return EquipmentSlot.is_supported(slot)
+
+
+func is_tradable() -> bool:
+	return base_value > 0
+
 
 ## Returns one message per invalid field; empty means the definition is usable.
 ##
@@ -55,6 +96,15 @@ func validation_errors() -> PackedStringArray:
 		errors.append("a stackable item needs max_stack >= 2 (got %d)" % max_stack)
 	elif not stackable and max_stack != 1:
 		errors.append("a non-stackable item needs max_stack == 1 (got %d)" % max_stack)
+	if slot != EquipmentSlot.Id.NONE and not EquipmentSlot.is_supported(slot):
+		errors.append("slot %d is not a supported equipment slot" % slot)
+	if base_value < 0:
+		errors.append("base_value must be >= 0 (got %d)" % base_value)
+	if not is_finite(movement_bonus):
+		errors.append("movement_bonus must be finite (got %f)" % movement_bonus)
+	if attack_definition != null and not attack_definition.is_valid():
+		for problem in attack_definition.validation_errors():
+			errors.append("attack_definition: %s" % problem)
 	return errors
 
 

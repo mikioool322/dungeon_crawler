@@ -16,6 +16,7 @@ const KEY_ACTIONS: Dictionary = {
 	&"move_left": KEY_A,
 	&"move_right": KEY_D,
 	&"interact": KEY_E,
+	&"inventory": KEY_TAB,
 }
 
 const MOUSE_ACTIONS: Dictionary = {

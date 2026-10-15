@@ -189,6 +189,7 @@ func _perform_travel(
 	_world = next_world
 	_player = player
 	_session.apply_to_player(player)
+	_session.apply_stats_to_player(player)
 	_session.note_location(world_id, resolved_spawn)
 	_connect_player_death(player)
 	_apply_run_lifecycle(world_id)
