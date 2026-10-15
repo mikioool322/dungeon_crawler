@@ -131,6 +131,8 @@ func test_the_full_sprint04_loop() -> void:
 		return
 	assert_not_null(npc_node.npc, "the NPC carries its definition")
 	assert_true(npc_node.npc.has_shop(), "and it offers a shop")
+	# The node dies with the hub on a world swap: hold the definition (content, not a Node).
+	var smith: NpcDefinition = npc_node.npc
 	hub.dialogue_requested.connect(
 		func(npc: NpcDefinition) -> void: _dialogue_requests.append(npc)
 	)
@@ -144,7 +146,7 @@ func test_the_full_sprint04_loop() -> void:
 	assert_eq(_dialogue_requests[0].id, &"npc.hub.smith", "for the shipped smith")
 
 	# --- 3. the shop: buy the sword -------------------------------------------
-	session.trading.bind_merchant(npc_node.npc.merchant)
+	session.trading.bind_merchant(smith.merchant)
 	session.add_gold(SWORD_PRICE + 10)
 	var gold_before := session.state.gold
 	assert_eq(
@@ -216,7 +218,7 @@ func test_the_full_sprint04_loop() -> void:
 		"the return portal works"
 	)
 	await wait_physics_frames(10)
-	session.trading.bind_merchant(npc_node.npc.merchant)
+	session.trading.bind_merchant(smith.merchant)
 	var gold_before_sale := session.state.gold
 	var sell_price := session.trading.sell_price(SALVE)
 	assert_true(sell_price > 0, "the loot is tradable")

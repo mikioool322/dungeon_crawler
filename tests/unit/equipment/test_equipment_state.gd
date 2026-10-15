@@ -59,6 +59,13 @@ func _definition(item_id: StringName) -> ItemDefinition:
 	return _registry.find_item(item_id)
 
 
+func teardown() -> void:
+	# Lambda connections and the shared instances: drop the references to avoid a cycle.
+	_equipment = null
+	_bag = null
+	_registry = null
+
+
 # --- can_equip ----------------------------------------------------------------
 
 func test_can_equip_reports_every_refusal_reason() -> void:

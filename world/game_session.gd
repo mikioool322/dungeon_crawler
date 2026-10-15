@@ -74,6 +74,9 @@ func setup(registry: ContentRegistry, save_manager: SaveManager) -> void:
 ## fresh, unwired instance, and an unwired record cannot equip anything.
 func _wire_equipment() -> void:
 	state.equipment.setup(_registry, state.inventory)
+	# The trade service holds the equipment record for its defensive "equipped" check, so a
+	# rebuilt record must be handed to it too (a stale reference would check the wrong one).
+	trading.setup(state, _registry, state.equipment)
 
 
 ## Builds the effective stats from the manifest's player definition and the equipment.

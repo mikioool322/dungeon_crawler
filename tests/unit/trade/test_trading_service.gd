@@ -30,6 +30,16 @@ func setup() -> void:
 	)
 
 
+func teardown() -> void:
+	# The signal connection above points back at this test object: dropping the references
+	# breaks the cycle, so neither the service nor the test leaks.
+	_trading = null
+	_equipment = null
+	_state = null
+	_registry = null
+	_trades = []
+
+
 func _build_registry() -> ContentRegistry:
 	var manifest := ContentManifest.new()
 
