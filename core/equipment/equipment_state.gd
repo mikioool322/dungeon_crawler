@@ -186,22 +186,20 @@ static func from_save_dict(
 		return state
 	for key: Variant in data:
 		var slot := EquipmentSlot.from_name(StringName(key))
-		if not EquipmentSlot.is_supported(slot):
-			state._note_load_warning("equipment dropped unknown slot '%s'" % key)
-			continue
 		var item_id := StringName(str(data[key]))
 		var definition := registry.find_item(item_id)
 		if definition == null:
 			state._note_load_warning("equipment dropped unknown item '%s'" % item_id)
 			continue
-		if definition.slot != slot:
-			# The equipment record was the only place holding this copy, so returning it to the
-			# bag is the difference between a mismatch and losing the item (ADR-015).
+		if not EquipmentSlot.is_supported(slot) or definition.slot != slot:
+			# The record was unusable (unknown slot, or an item that does not belong there).
+			# The copy it held goes back to the bag (ADR-015) instead of vanishing — but only
+			# when the bag does not already have one, so a hand-edited file cannot duplicate.
 			state._note_load_warning(
 				"equipment '%s' did not belong in slot '%s'; returned to the bag"
-				% [item_id, EquipmentSlot.name_of(slot)]
+				% [item_id, key]
 			)
-			inventory.add(definition, 1)
+			state._return_copy(definition, inventory)
 			continue
 		if state._equipped.values().has(item_id):
 			state._note_load_warning("equipment dropped a duplicate '%s'" % item_id)
@@ -211,6 +209,12 @@ static func from_save_dict(
 			inventory.remove(item_id, 1)
 		state._equipped[slot] = item_id
 	return state
+
+
+## Puts a copy back into the bag unless it already holds one of the same id.
+func _return_copy(definition: ItemDefinition, inventory: Inventory) -> void:
+	if inventory.count_of(definition.id) < 1:
+		inventory.add(definition, 1)
 
 
 ## Warnings collected while loading a save: dropped records and returned copies. The session

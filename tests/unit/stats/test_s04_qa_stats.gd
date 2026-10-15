@@ -106,12 +106,13 @@ func test_changed_fires_only_when_an_effective_value_really_differs() -> void:
 	)
 	assert_eq(changes.size(), 1, "still one notification")
 
-	# A bucket whose values are all ignored is stored empty and changes nothing.
+	# A bucket whose values are all ignored is not stored at all: it must not linger as a no-op
+	# source in `sources()` (review fix).
 	assert_false(
 		stats.set_modifiers(&"ignored", {CharacterStats.ATTACK_DAMAGE: NAN}),
 		"a bucket with no usable value reports no change"
 	)
-	assert_true(stats.has_source(&"ignored"), "the empty bucket is tracked")
+	assert_false(stats.has_source(&"ignored"), "and it is not tracked")
 	assert_false(
 		stats.clear_modifiers(&"ignored"),
 		"removing an empty bucket changes no effective value"

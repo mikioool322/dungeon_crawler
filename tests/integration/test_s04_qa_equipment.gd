@@ -115,24 +115,24 @@ func test_a_swap_chain_through_the_session_replaces_the_stat_bucket() -> void:
 ## every `apply_snapshot()` (i.e. after every real boot). The stats and the panels still
 ## follow through the direct `_sync_equipment_modifiers()` call and the
 ## `stats_changed`/`inventory_changed` signals, which is why the shipped suites pass.
-## This test records the defect: when the signal is re-connected it will fail and must
-## be deleted/updated as part of the fix.
-func test_the_equipment_changed_signal_is_dead_after_a_new_game() -> void:
+## Regression guard for the review fix: `_wire_equipment()` re-arms the record's change signal on
+## every rebuild, so the public `equipment_changed` fires after a production-shaped boot.
+func test_the_equipment_changed_signal_survives_a_new_game() -> void:
 	var events: Array[int] = []
 	_session.equipment_changed.connect(func() -> void: events.append(1))
 	_session.state.inventory.add(_registry.find_item(SWORD), 1)
 	assert_eq(_session.equip_item(SWORD), EquipmentState.CODE_OK, "the equip itself succeeds")
 	assert_eq(
-		events.size(), 0,
-		"DEFECT: equipment_changed does not fire after new_game (expected 1)"
+		events.size(), 1,
+		"equipment_changed fires after new_game (the signal is re-armed on every rebuild)"
 	)
 	assert_true(
 		_session.stats.has_source(&"main_hand"),
-		"but the fallback path updated the stats"
+		"and the stat bucket was updated"
 	)
 	assert_almost_eq(
 		_session.stats.effective(CharacterStats.ATTACK_DAMAGE), 49.0, 0.0001,
-		"so the effective attack is still correct"
+		"so the effective attack is correct"
 	)
 
 
@@ -182,14 +182,11 @@ func test_a_hand_written_save_is_filtered_by_apply_snapshot() -> void:
 		_session.stats.effective(CharacterStats.ATTACK_DAMAGE), 34.0, 0.0001,
 		"and no ghost bonus reached the stats"
 	)
-	# Note (reported S04-QA finding, LOW): the equipment drops are announced through
-	# `push_warning` inside `EquipmentState.from_save_dict` only; `apply_snapshot()`
-	# does not append them to the returned warnings, unlike item/world/reward filtering.
-	# DEFECT marker: the three dropped entries add no result warning. Update/delete this
-	# assertion when the diagnostics are unified.
+	# Regression guard for the review fix: the equipment drops reach the boot result, like the
+	# item/world/reward filtering does.
 	assert_eq(
-		warnings.size(), 0,
-		"DEFECT: dropped equipment entries are missing from the boot result warnings"
+		warnings.size(), 3,
+		"every dropped equipment entry is reported in the boot result: %s" % warnings
 	)
 	# The rebuilt record is wired: a later equip works.
 	_session.state.inventory.add(_registry.find_item(VEST), 1)
@@ -225,7 +222,7 @@ func test_a_hand_written_save_is_filtered_by_apply_snapshot() -> void:
 
 # --- the multi-copy sell edge --------------------------------------------------
 
-func test_a_spare_copy_of_an_equipped_item_cannot_be_sold() -> void:
+func test_a_spare_copy_of_an_equipped_item_can_be_sold() -> void:
 	_session.state.inventory.add(_registry.find_item(SWORD), 2)
 	assert_eq(_session.equip_item(SWORD), EquipmentState.CODE_OK, "one sword equips")
 	assert_eq(_bag(SWORD), 1, "the spare stays in the bag")
@@ -233,21 +230,22 @@ func test_a_spare_copy_of_an_equipped_item_cannot_be_sold() -> void:
 
 	_session.trading.bind_merchant(_registry.find_merchant(&"merchant.hub.smith"))
 	_session.state.gold = 0
+	# Ownership A is per copy: the worn sword is untouchable, the bagged spare is ordinary goods.
 	assert_eq(
-		_session.trading.can_sell(SWORD), TradingService.CODE_EQUIPPED,
-		"the defensive equipped check fires although a spare copy is bagged"
+		_session.trading.can_sell(SWORD), TradingService.CODE_OK,
+		"the spare copy is sellable even though the same id is worn"
 	)
+	assert_eq(_session.trading.sell(SWORD), TradingService.CODE_OK, "and it sells")
+	assert_eq(_bag(SWORD), 0, "the spare left the bag")
+	assert_eq(_session.state.gold, 20, "for the half-rate price")
+	assert_true(_session.state.equipment.is_equipped(SWORD), "the worn copy is untouched")
+	# Now only the worn copy is left, and that one is not for sale.
 	assert_eq(
 		_session.trading.sell(SWORD), TradingService.CODE_EQUIPPED,
-		"and the sale is refused"
+		"the worn copy alone cannot be sold"
 	)
-	assert_eq(_bag(SWORD), 1, "the spare stays in the bag")
-	assert_eq(_session.state.gold, 0, "and no gold was granted")
-	# Unequipping first makes the same copy sellable: the refusal is conservative,
-	# not a lost item.
 	assert_eq(
 		_session.unequip_slot(EquipmentSlot.Id.MAIN_HAND), EquipmentState.CODE_OK, "unequip first"
 	)
-	assert_eq(_session.trading.sell(SWORD), TradingService.CODE_OK, "then the copy sells")
-	assert_eq(_bag(SWORD), 1, "one of the two copies was sold")
-	assert_eq(_session.state.gold, 20, "for the half-rate price")
+	assert_eq(_session.trading.sell(SWORD), TradingService.CODE_OK, "then it sells too")
+	assert_eq(_session.state.gold, 40, "for another half-rate price")

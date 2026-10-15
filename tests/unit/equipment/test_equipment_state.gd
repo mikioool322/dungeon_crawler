@@ -247,13 +247,22 @@ func test_a_non_equippable_record_is_returned_to_the_bag_too() -> void:
 	assert_eq(bag.count_of(ROCK), 1, "the rock is in the bag")
 
 
-func test_unknown_records_report_but_cannot_return_anything() -> void:
+func test_unknown_slots_report_and_return_known_items() -> void:
 	var bag := Inventory.new()
 	var data := {"main_hand": "item.ghost", "hat": String(SWORD)}
 	var restored := EquipmentState.from_save_dict(data, _registry, bag)
 	assert_eq(restored.equipped_slots().size(), 0, "nothing equipped")
-	assert_eq(bag.count_of(SWORD), 0, "an unknown slot never invents a copy")
+	assert_eq(bag.count_of(SWORD), 1, "a known item from an unknown slot returns to the bag")
 	assert_eq(restored.load_warnings().size(), 2, "both drops are reported")
+
+
+func test_a_returned_copy_is_never_duplicated() -> void:
+	var bag := Inventory.new()
+	bag.add(_definition(SWORD), 1)
+	var data := {"hat": String(SWORD), "chest_armor": String(SWORD)}
+	var restored := EquipmentState.from_save_dict(data, _registry, bag)
+	assert_eq(restored.equipped_slots().size(), 0, "nothing equipped")
+	assert_eq(bag.count_of(SWORD), 1, "a hand-edited file cannot duplicate an item")
 
 
 func test_an_empty_save_mapping_yields_empty_equipment() -> void:
