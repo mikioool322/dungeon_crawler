@@ -38,6 +38,10 @@ static func _migrate_v1_to_v2(data: Dictionary) -> Dictionary:
 	migrated["version"] = 2
 	if not migrated.has("dungeon_progress"):
 		migrated["dungeon_progress"] = {}
+	# Every v1 reward key was a regular-reward claim; ADR-013 moves those into the
+	# transient run ledger, so keeping them would only leave dead persistent data.
+	# Story claims cannot exist in v1, so nothing meaningful is lost.
+	migrated["claimed_reward_keys"] = []
 	return migrated
 
 const TMP_SUFFIX: String = ".tmp"

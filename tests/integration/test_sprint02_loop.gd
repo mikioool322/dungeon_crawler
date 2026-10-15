@@ -48,6 +48,13 @@ const CHEST_GOLD := 5
 const CHEST_ITEM_COUNT := 1
 const PLAYER_SWING_DAMAGE := 34.0
 
+## Dungeon 01 completion rewards (ADR-012/ADR-013): the grunt is the objective boss, so
+## killing it completes the dungeon and grants the regular (5) and first-clear (10) gold.
+const COMPLETION_REGULAR_GOLD := 5
+const COMPLETION_STORY_GOLD := 10
+const COMPLETION_GOLD := COMPLETION_REGULAR_GOLD + COMPLETION_STORY_GOLD
+const STORY_KEY := &"dungeon.01/reward.story.dungeon01"
+
 var _main: Main = null
 
 ## `reward_granted` emissions per grant key, recorded from the real loot service.
@@ -336,7 +343,12 @@ func test_full_loop_hub_to_dungeon_loot_return_save_and_reload() -> void:
 		assert_eq(pickup.reward.id, &"reward.grunt_drop", "the reward is reward.grunt_drop")
 		assert_eq(pickup.reward.gold, GRUNT_GOLD, "worth exactly 3 gold")
 		assert_null(pickup.reward.item, "and no item")
-	assert_eq(_main.session.state.gold, 0, "no gold was awarded before the pickup")
+	# The grunt is dungeon 01's objective boss, so its death completed the run and
+	# granted the completion rewards before the drop is even touched (ADR-012/013).
+	assert_eq(
+		_main.session.state.gold, COMPLETION_GOLD, "the completion rewards landed on the kill"
+	)
+	assert_true(_main.session.progress.is_completed(&"dungeon.01"), "the dungeon is completed")
 
 	# --- 6. pick it up with the real interact action ----------------------------
 	_place_player(player, pickup.global_position, 1.2, -0.65)
@@ -347,18 +359,29 @@ func test_full_loop_hub_to_dungeon_loot_return_save_and_reload() -> void:
 	Input.parse_input_event(_action_event(&"interact", false))
 	await wait_process_frames(2)
 
-	assert_eq(_main.session.state.gold, GRUNT_GOLD, "the pickup granted exactly 3 gold")
+	assert_eq(
+		_main.session.state.gold, COMPLETION_GOLD + GRUNT_GOLD, "the pickup granted exactly 3 gold"
+	)
 	assert_eq(_grants.get(GRUNT_KEY, 0), 1, "reward_granted fired exactly once for the drop key")
-	assert_true(_main.session.state.is_claimed(GRUNT_KEY), "the drop key is recorded as claimed")
+	assert_true(
+		_main.session.loot.is_claimed_in_run(GRUNT_KEY),
+		"the drop key is claimed in the RUN ledger (ADR-013)"
+	)
+	assert_false(
+		_main.session.state.is_claimed(GRUNT_KEY),
+		"and NOT in the persistent ledger: ordinary loot repeats next run"
+	)
 	assert_false(is_instance_valid(pickup), "the pickup is consumed after the grant")
 	assert_true(
-		_main.hud.gold_label.text.contains(str(GRUNT_GOLD)),
+		_main.hud.gold_label.text.contains(str(COMPLETION_GOLD + GRUNT_GOLD)),
 		"the HUD gold label follows a loot grant, got '%s'" % _main.hud.gold_label.text
 	)
 
 	var second := controller.try_interact()
 	assert_false(second.succeeded(), "a second interact on the gone drop is refused")
-	assert_eq(_main.session.state.gold, GRUNT_GOLD, "and the gold never changes twice")
+	assert_eq(
+		_main.session.state.gold, COMPLETION_GOLD + GRUNT_GOLD, "and the gold never changes twice"
+	)
 	assert_eq(_grants.get(GRUNT_KEY, 0), 1, "and reward_granted stays at exactly one")
 
 	# --- 7. open the chest: +1 item.minor_salve and +5 gold, exactly once -------
@@ -377,13 +400,21 @@ func test_full_loop_hub_to_dungeon_loot_return_save_and_reload() -> void:
 		CHEST_ITEM_COUNT,
 		"exactly one item.minor_salve was added"
 	)
-	assert_eq(_main.session.state.gold, GRUNT_GOLD + CHEST_GOLD, "gold is 3 + 5")
+	assert_eq(
+		_main.session.state.gold,
+		COMPLETION_GOLD + GRUNT_GOLD + CHEST_GOLD,
+		"gold is completion (15) + drop (3) + chest (5)"
+	)
 	assert_eq(_grants.get(CHEST_KEY, 0), 1, "reward_granted fired once for the chest key")
 	assert_true(chest.is_used(), "the chest records the open")
 	assert_true(is_instance_valid(chest), "the chest stays in the world")
 	var reopen := chest.interact(player)
 	assert_false(reopen.succeeded(), "the opened chest refuses a second open")
-	assert_eq(_main.session.state.gold, GRUNT_GOLD + CHEST_GOLD, "a second open never pays twice")
+	assert_eq(
+		_main.session.state.gold,
+		COMPLETION_GOLD + GRUNT_GOLD + CHEST_GOLD,
+		"a second open never pays twice"
+	)
 	assert_eq(
 		_main.session.state.inventory.count_of(SALVE),
 		CHEST_ITEM_COUNT,
@@ -467,17 +498,31 @@ func test_full_loop_hub_to_dungeon_loot_return_save_and_reload() -> void:
 	assert_not_null(loaded.snapshot, "the load produced a snapshot")
 	if loaded.snapshot != null:
 		assert_almost_eq(loaded.snapshot.health, saved_hp, 0.0001, "the save holds the live HP")
-		assert_eq(loaded.snapshot.gold, GRUNT_GOLD + CHEST_GOLD, "the save holds 8 gold")
+		assert_eq(
+			loaded.snapshot.gold,
+			COMPLETION_GOLD + GRUNT_GOLD + CHEST_GOLD,
+			"the save holds the earned gold"
+		)
 		assert_eq(loaded.snapshot.world_id, HUB_WORLD, "the save holds the hub world id")
 		assert_eq(
 			loaded.snapshot.spawn_id, &"spawn.hub.dungeon_portal", "the save holds the arrival spawn id"
 		)
-		assert_true(
+		assert_false(
 			loaded.snapshot.claimed_reward_keys.has(String(GRUNT_KEY)),
-			"the save holds the grunt drop key"
+			"the run-scoped drop key is NOT persisted (ADR-013)"
+		)
+		assert_false(
+			loaded.snapshot.claimed_reward_keys.has(String(CHEST_KEY)),
+			"nor is the chest key"
 		)
 		assert_true(
-			loaded.snapshot.claimed_reward_keys.has(String(CHEST_KEY)), "the save holds the chest key"
+			loaded.snapshot.claimed_reward_keys.has(String(STORY_KEY)),
+			"the one-time story key IS persisted"
+		)
+		assert_eq(
+			loaded.snapshot.dungeon_progress.get("completed", []),
+			PackedStringArray(["dungeon.01"]),
+			"the save holds the dungeon completion"
 		)
 	for suffix in [".tmp", ".bak"]:
 		assert_false(
@@ -512,12 +557,16 @@ func test_full_loop_hub_to_dungeon_loot_return_save_and_reload() -> void:
 	)
 	assert_eq(relaunched.session.state.world_id, expected_world, "the world location is identical")
 	assert_eq(relaunched.session.state.spawn_id, expected_spawn, "the spawn id is identical")
-	assert_true(relaunched.session.state.is_claimed(GRUNT_KEY), "the grunt's drop can never be looted twice")
-	assert_true(relaunched.session.state.is_claimed(CHEST_KEY), "the chest key survives too")
+	assert_true(relaunched.session.state.is_claimed(STORY_KEY), "the story claim survives")
+	assert_false(
+		relaunched.session.state.is_claimed(GRUNT_KEY),
+		"the run-scoped drop key was never persisted (ADR-013)"
+	)
+	assert_false(relaunched.session.state.is_claimed(CHEST_KEY), "nor was the chest key")
 	assert_eq(
 		relaunched.session.state.claimed_reward_keys.size(),
 		expected_key_count,
-		"exactly the two claimed keys are restored"
+		"exactly the persistent (story) keys are restored"
 	)
 
 	assert_eq(_count_players(relaunched), 1, "the relaunch has exactly one player rig")
@@ -553,21 +602,26 @@ func test_full_loop_hub_to_dungeon_loot_return_save_and_reload() -> void:
 
 	# --- 11. the claimed key really stops the drop from ever reappearing --------
 	# World state is not persisted (ADR-009): the grunt is alive again on the second
-	# visit, but its reward key is claimed, so defeating it must spawn no pickup and
-	# award nothing. This is the end-to-end half of "the drop can never be looted
-	# twice"; the restored key assertion above is the persistence half.
+	# visit, a fresh run starts, so the drop reappears and the ordinary rewards can be
+	# earned again (ADR-012 rules 6-7); the one-time story reward stays claimed.
 	relaunched.session.loot.reward_granted.connect(_on_reward_granted)
 	var again := relaunched.router.request_travel(DUNGEON_WORLD, &"spawn.dungeon.entry")
 	assert_eq(again, WorldRouter.CODE_TRAVEL_STARTED, "the relaunch can re-enter the dungeon")
 	await wait_physics_frames(5)
 	var dungeon_again := relaunched.router.current_world()
 	assert_eq(relaunched.router.current_world_id(), DUNGEON_WORLD, "the second visit is in the dungeon")
+	assert_true(relaunched.session.dungeons.is_run_active(), "the second visit has its own run")
+	assert_false(
+		relaunched.session.loot.is_claimed_in_run(GRUNT_KEY),
+		"the new run ledger is empty, so the drop is earnable again"
+	)
 	var player_again := relaunched.router.current_player()
 	var enemy_again := dungeon_again.get_node_or_null("Enemy") as EnemyBrain
 	assert_not_null(player_again, "the second visit spawned a player")
 	assert_not_null(enemy_again, "the grunt is alive again (world state is not persisted)")
 	if player_again == null or enemy_again == null:
 		return
+	var story_gold_before := relaunched.session.state.gold
 	_place_player(player_again, enemy_again.global_position, 1.9, 0.0)
 	await wait_physics_frames(2)
 	for swing in 3:
@@ -578,15 +632,19 @@ func test_full_loop_hub_to_dungeon_loot_return_save_and_reload() -> void:
 		assert_true(result.applied, "second-visit swing %d landed (%s)" % [swing + 1, result])
 	assert_eq(enemy_again.fsm_state, EnemyFsm.State.DEAD, "the grunt died again")
 	assert_eq(
-		_find_pickups(dungeon_again).size(),
-		0,
-		"the claimed key prevents the drop from reappearing (ADR-009)"
+		_find_pickups(dungeon_again).size(), 1, "the drop reappears in the new run (ADR-012 rule 6)"
 	)
-	assert_eq(relaunched.session.state.gold, expected_gold, "and no gold is awarded twice")
-	assert_eq(_grants.get(GRUNT_KEY, 0), 1, "reward_granted never fires again for the claimed key")
+	assert_eq(
+		relaunched.session.state.gold,
+		story_gold_before + COMPLETION_REGULAR_GOLD,
+		"only the repeatable completion reward is granted again"
+	)
+	assert_true(
+		relaunched.session.state.inventory.count_of(&"item.rusty_dagger") == 1,
+		"the one-time story item is NOT granted twice"
+	)
 
-	# The chest behaves the same way: a fresh, unopened chest whose key is claimed
-	# reports already_collected and pays nothing (ADR-009).
+	# The chest is fresh in the new run and pays its ordinary reward again.
 	var chest_again := dungeon_again.get_node_or_null("Chest") as ChestInteractable
 	assert_not_null(chest_again, "a fresh chest is back on the second visit")
 	if chest_again == null:
@@ -599,14 +657,16 @@ func test_full_loop_hub_to_dungeon_loot_return_save_and_reload() -> void:
 		return
 	assert_eq(controller_again.current_focus(), chest_again, "the fresh chest is focused")
 	var open_again := controller_again.try_interact()
-	assert_true(
-		open_again.succeeded(), "re-opening a claimed chest is a harmless success: %s" % open_again
+	assert_true(open_again.succeeded(), "the fresh chest opens again: %s" % open_again)
+	assert_eq(open_again.message, "granted", "and grants its ordinary reward in the new run")
+	assert_eq(
+		relaunched.session.state.gold,
+		story_gold_before + COMPLETION_REGULAR_GOLD + CHEST_GOLD,
+		"the chest pays again in a new run"
 	)
-	assert_eq(open_again.message, "already_collected", "and reports why nothing was granted")
-	assert_eq(relaunched.session.state.gold, expected_gold, "the chest never pays twice")
 	assert_eq(
 		relaunched.session.state.inventory.count_of(SALVE),
-		CHEST_ITEM_COUNT,
-		"and never adds a second salve"
+		CHEST_ITEM_COUNT * 2,
+		"and adds another salve"
 	)
-	assert_eq(_grants.get(CHEST_KEY, 0), 1, "reward_granted never fires again for the chest key")
+	assert_eq(_grants.get(CHEST_KEY, 0), 2, "reward_granted fires once per run for the chest key")
