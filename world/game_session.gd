@@ -54,7 +54,7 @@ func setup(registry: ContentRegistry, save_manager: SaveManager) -> void:
 	_save_manager = save_manager
 	loot.setup(state, registry)
 	dungeons.setup(registry, progress, loot)
-	state.equipment.setup(registry, state.inventory)
+	_wire_equipment()
 	trading.setup(state, registry, state.equipment)
 	_build_stats()
 	if not state.inventory.changed.is_connected(_on_inventory_changed):
@@ -67,6 +67,13 @@ func setup(registry: ContentRegistry, save_manager: SaveManager) -> void:
 		stats.changed.connect(_on_stats_changed)
 	if not trading.trade_completed.is_connected(_on_trade_completed):
 		trading.trade_completed.connect(_on_trade_completed)
+
+
+## (Re)binds the equipment record to this session's registry and bag. Called after every
+## rebuild (`setup`, `new_game`, load): `reset_to_new_game` replaces the record with a
+## fresh, unwired instance, and an unwired record cannot equip anything.
+func _wire_equipment() -> void:
+	state.equipment.setup(_registry, state.inventory)
 
 
 ## Builds the effective stats from the manifest's player definition and the equipment.
@@ -163,6 +170,7 @@ func new_game() -> void:
 	state.world_id = DEFAULT_WORLD_ID
 	state.spawn_id = &""
 	progress.reset_to_new_game(_start_dungeon_ids())
+	_wire_equipment()
 	_sync_equipment_modifiers()
 	gold_changed.emit(state.gold)
 	inventory_changed.emit()
@@ -364,6 +372,7 @@ func _apply_equipment(snapshot: SaveSnapshot, warnings: PackedStringArray) -> vo
 	if _registry == null:
 		return
 	state.equipment = EquipmentState.from_save_dict(snapshot.equipment, _registry, state.inventory)
+	_wire_equipment()
 	_sync_equipment_modifiers()
 
 

@@ -192,6 +192,7 @@ func _perform_travel(
 	_session.apply_stats_to_player(player)
 	_session.note_location(world_id, resolved_spawn)
 	_connect_player_death(player)
+	_connect_player_loadout()
 	_apply_run_lifecycle(world_id)
 
 	if previous_world != null and is_instance_valid(previous_world):
@@ -241,6 +242,23 @@ func _connect_player_death(player: PlayerController) -> void:
 	if health == null:
 		return
 	health.died.connect(_on_player_died.bind(player))
+
+
+## Equipment changes must reach the live rig (ADR-015/ADR-016): the router owns the rig,
+## so it listens once and re-applies the stats to whatever rig is current.
+func _connect_player_loadout() -> void:
+	if _session == null:
+		return
+	if not _session.equipment_changed.is_connected(_on_player_loadout_changed):
+		_session.equipment_changed.connect(_on_player_loadout_changed)
+	if not _session.stats_changed.is_connected(_on_player_loadout_changed):
+		_session.stats_changed.connect(_on_player_loadout_changed)
+
+
+func _on_player_loadout_changed() -> void:
+	if _player == null or not is_instance_valid(_player):
+		return
+	_session.apply_stats_to_player(_player)
 
 
 ## One run at a time (ADR-012): entering a dungeon world starts a fresh run, leaving to
