@@ -30,14 +30,25 @@ Versioned plain DTOs; stable IDs for item and unlock references. Save atomically
 - AttackDefinition as `Resource`; later attack effects as composable data/handlers.
 - EnemyDefinition `Resource` referencing visuals, brain configuration, drop table and unique ID.
 - World/RoomDefinition for authored layouts; generator can be added without rewriting combat.
-- Repeatable dungeons: `DungeonDefinition` (content) + `DungeonProgress` (persistent, owned by
-  `GameSession`) + `DungeonRunState` (transient, never saved), per ADR-012. Not implemented yet; the
-  save format stays version 1 until a `dungeon_progress` section is migrated in.
+- Repeatable dungeons (ADR-012): `DungeonDefinition` (content) + `DungeonProgress` (persistent,
+  owned by `GameSession`) + `DungeonRunState` (transient, never saved). Shipped in Sprint 03;
+  the save format carries a `dungeon_progress` section (version 2).
+- Character stats and equipment (ADR-015/ADR-016): `PlayerDefinition` (content) owns the base
+  stats, `ItemDefinition` owns each item's own numbers, `CharacterStats` computes the effective
+  values from one additive bucket per source, and `EquipmentState` (ownership A: an equipped item
+  leaves the bag) is the durable record. Effective stats are never saved; they are recomputed.
+  A future stat or slot is a data plus enum change; buffs only need another `set_modifiers()` caller.
+- NPC and trading (ADR-017): `NpcDefinition` + `NpcInteractable` announce a dialogue and know
+  nothing about the player, the bag, gold or the save; `TradingService` is the only trade writer
+  and the only place with a price rule; merchant stock is transient and never saved.
 - RewardCatalog maps event/reward IDs to gallery media; no direct gallery calls from enemies.
 - Asset import adapter maps .glb/.png/.webp/.spritesheet to imported scenes/content definitions.
 
 ## Folder boundaries (suggested; create only when needed)
-`core/`, `actors/player/`, `actors/enemies/`, `systems/combat/`, `systems/interaction/`, `systems/inventory/`, `world/hub/`, `world/dungeons/`, `content/`, `presentation/`, `assets/`, `tests/`, `tools/`.
+`core/` (content, session, dungeon, stats, equipment, inventory, combat, physics),
+`actors/player/`, `actors/enemies/`, `systems/` (combat, ai, interaction, inventory, loot, save,
+content, dungeon, trade), `world/hub/`, `world/dungeons/`, `content/`, `presentation/`, `assets/`,
+`tests/`, `tools/`.
 
 ## Decision policy
 When proposing a public API change, write: callers, migration strategy, save compatibility, tests, alternatives. Record agreed decisions in `docs/DECISIONS.md`. Do not fill future subsystem folders with empty stubs.

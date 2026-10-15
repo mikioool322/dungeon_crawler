@@ -112,15 +112,29 @@ func can_buy(item_id)/buy(item_id)/can_sell(item_id)/sell(item_id) -> StringName
 
 | ID | Deliverable | Owner | State |
 |----|-------------|-------|-------|
-| W0 | Contracts: ADR-015..017 + ADR-005 addendum, this plan, the `inventory` action + lock tests | coordinator | in progress |
-| W1 | Domain: `PlayerDefinition`, `CharacterStats`, `EquipmentSlot`, `EquipmentState`, `ItemDefinition` extensions | coordinator | in progress |
-| W2 | Combat integration: swing snapshot, damage/defense providers, `set_max_health`, viewmodel weapon swap | coordinator | planned |
-| W3 | Session integration: equipment in the session, equip/unequip operations, stats application on spawn, save v3 | coordinator | planned |
-| W4 | Content: `player.default`, two swords, armour, junk item, merchant, NPC, manifest buckets | coordinator | planned |
-| W5 | NPC interactable + `TradingService` + world host binding + hub placement | coordinator | planned |
-| W6 | UI: inventory/equipment/stats panel + dialogue/shop panel + HUD wiring | `godot-specialist` | planned |
-| W7 | Tests: domain suites, E2E loop, Sprint 01-03 regression | coordinator + `qa-engineer` | planned |
-| W8 | Independent review + fixes + re-validation | `reviewer` | planned |
+| W0 | Contracts: ADR-015..017 + ADR-005 addendum, this plan, the `inventory` action + lock tests | coordinator | done (`9143bf7`) |
+| W1 | Domain: `PlayerDefinition`, `CharacterStats`, `EquipmentSlot`, `EquipmentState`, `ItemDefinition` extensions | coordinator | done (`9143bf7`) |
+| W2 | Combat integration: swing snapshot, damage/defense providers, `set_max_health`, viewmodel weapon swap | coordinator | done (`9143bf7`) |
+| W3 | Session integration: equipment in the session, equip/unequip operations, stats application on spawn, save v3 | coordinator | done (`9143bf7`, `6cdfb0e`, `f5021b6`) |
+| W4 | Content: `player.default`, two swords, armour, sellable loot, merchant, NPC, manifest buckets | coordinator | done (`9143bf7`) |
+| W5 | NPC interactable + `TradingService` + world host binding + hub placement | coordinator | done (`9143bf7`) |
+| W6 | UI: inventory/equipment/stats panel + dialogue/shop panel + HUD wiring | `godot-specialist` | done (`80b7dc1`, merged in `109195c`) |
+| W7 | Tests: domain suites, save v3, shipped content, E2E loop, Sprint 01-03 regression | coordinator + `qa-engineer` | done (`6cdfb0e`, `f5021b6`, `cc610ad`, QA pass) |
+| W8 | Independent review + fixes + re-validation | `reviewer` | done (findings fixed, full regression green) |
+
+## Test evidence (automated)
+
+| Area | File | Covers |
+|------|------|--------|
+| Stats | `tests/unit/stats/test_character_stats.gd` | base/effective, bucket replace, clamps, non-finite input, change signal, invalid definition |
+| Equipment | `tests/unit/equipment/test_equipment_state.gd` | ownership A, refusal codes, swap, bag-vs-slot invariant, tolerant save mapping |
+| Trading | `tests/unit/trade/test_trading_service.gd` | price rule, atomic refusals, duplicate events, gold floor, equipped/non-tradable refusals |
+| Combat integration | `tests/integration/test_stats_combat.gd` | stat-driven damage, profile pin, mid-swing changes, cooldown, soft mitigation, max-HP clamp |
+| Shipped content | `tests/integration/test_sprint04_content.gd` | player definition, weapons/armour/loot, merchant stock, hub NPC, cross-references |
+| Save v3 | `tests/unit/save/test_save_v3_equipment.gd` | round trip, v2->v3, v1->v2->v3, malformed sections, future version, corrupt quarantine |
+| Panels | `tests/integration/test_inventory_panel.gd`, `tests/integration/test_shop_panel.gd` | rows, operations, refusals, one screen owner, input restore |
+| End to end | `tests/integration/test_sprint04_loop.gd` | the owner's whole loop on the real bootstrap scene |
+| Manual/graphical | `tests/manual/sprint04_checklist.md` | M1-M18 and the carried-over H1-H5, all NOT RUN without a window |
 
 ## Acceptance criteria
 
