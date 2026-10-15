@@ -248,3 +248,49 @@ detection), id derivation from names or paths.
 Consequences: content drift fails tests instead of surfacing as a runtime miss; adding content is a
 deliberate manifest edit; hot reload and an editor validator are deferred.
 
+## ADR-012 - Repeatable dungeons with persistent story progress
+Status: accepted (decision recorded before Sprint 03; no code, no save-format change yet).
+Context: The game ships isolated dungeons reached from the hub. A single-clear model would waste the
+existing content and force new geometry for every story beat, while a pure reset model would lose
+story progress. `GAME_DESIGN.md` therefore needed an explicit repeatability rule before any dungeon
+progression is built.
+Decision:
+1. The player starts with access to the first dungeon.
+2. Completing a dungeon for the first time is a story event.
+3. A first clear unlocks the next dungeon according to the progression configuration.
+4. Once unlocked, a dungeon stays available.
+5. A dungeon can be entered and completed repeatedly.
+6. Starting a new run resets ordinary enemies, bosses and ordinary loot for that run.
+7. Repeating a dungeon re-earns ordinary rewards, XP and gold.
+8. One-time story rewards can never be granted a second time.
+9. The first-clear story events must not fire again on a repeat.
+10. Persistent story progress is saved independently of the transient run state.
+
+Future contracts (concept only - do NOT implement until the dungeon increment is scheduled; no
+runtime or save-format change is authorised by this ADR):
+- `DungeonDefinition` (static content, `Resource`): dungeon id, scene reference, prerequisites,
+  first-clear unlocks, repeatable flag, reward references.
+- `DungeonProgress` (persistent, per save): completed dungeon ids, unlocked dungeon ids,
+  first-clear reward claims, durable story progress.
+- `DungeonRunState` (transient, per run): current dungeon, enemy state for this run, chests opened
+  in this run, loot collected in this run. Never persisted.
+
+Cooperation with the existing systems:
+- `GameSession` owns `DungeonProgress` next to `PlayerSessionState`; `DungeonRunState` lives with the
+  run and is destroyed with the world, never written to a save.
+- `SaveManager`: a later version bump adds a `dungeon_progress` section through the existing
+  `MIGRATIONS` extension point; version 1 files stay loadable, and no field is added now.
+- `ContentRegistry`/`ContentManifest`: `DungeonDefinition` becomes another manifest bucket under
+  ADR-011, with the same duplicate/cross-reference validation.
+- `WorldRouter`: entering a dungeon keeps using the existing world and spawn ids; the progress record
+  only decides which dungeons are offered.
+- `LootService`: ordinary repeatable rewards keep per-run grant keys; one-time story rewards use
+  persistent claim keys that survive runs, re-entry and save/load (the same idempotency rule as
+  ADR-009).
+
+Rejected: resetting story progress on every run; persisting transient run state; deriving unlocks
+from scene names or node paths; a procedural generator as a prerequisite for repeatability.
+Consequences: repeatability and story progress get separate owners and separate lifetimes; the first
+dungeon increment is a definition plus a progress record plus a gate, not a generator; procedural
+generation and the progression formula stay undecided.
+

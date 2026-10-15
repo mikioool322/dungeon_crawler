@@ -30,6 +30,9 @@ Versioned plain DTOs; stable IDs for item and unlock references. Save atomically
 - AttackDefinition as `Resource`; later attack effects as composable data/handlers.
 - EnemyDefinition `Resource` referencing visuals, brain configuration, drop table and unique ID.
 - World/RoomDefinition for authored layouts; generator can be added without rewriting combat.
+- Repeatable dungeons: `DungeonDefinition` (content) + `DungeonProgress` (persistent, owned by
+  `GameSession`) + `DungeonRunState` (transient, never saved), per ADR-012. Not implemented yet; the
+  save format stays version 1 until a `dungeon_progress` section is migrated in.
 - RewardCatalog maps event/reward IDs to gallery media; no direct gallery calls from enemies.
 - Asset import adapter maps .glb/.png/.webp/.spritesheet to imported scenes/content definitions.
 
