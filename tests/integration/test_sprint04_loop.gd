@@ -59,6 +59,16 @@ func _walk(root: Node) -> Array[Node]:
 	return found
 
 
+## Presses Escape through the real HUD handler (the same entry point the player uses).
+func _press_ui_cancel() -> void:
+	if _main == null or _main.hud == null:
+		return
+	var event := InputEventAction.new()
+	event.action = &"ui_cancel"
+	event.pressed = true
+	_main.hud._unhandled_input(event)
+
+
 func _player() -> PlayerController:
 	return _main.router.current_player()
 
@@ -144,6 +154,15 @@ func test_the_full_sprint04_loop() -> void:
 	assert_true(talked.succeeded(), "talking succeeds: %s" % talked)
 	assert_eq(_dialogue_requests.size(), 1, "the dialogue was requested exactly once")
 	assert_eq(_dialogue_requests[0].id, &"npc.hub.smith", "for the shipped smith")
+	# A panel owns the screen while it is open: it released the cursor and suspended the
+	# player's input. Closing it (what Escape does) must hand both back.
+	assert_false(_player().mouse_captured, "the open dialogue released the cursor")
+	_press_ui_cancel()
+	await wait_process_frames(2)
+	assert_true(_player().mouse_captured, "closing the dialogue captured the cursor again")
+	assert_true(
+		InteractionController.find_on(_player()).is_enabled(), "and interaction is enabled again"
+	)
 
 	# --- 3. the shop: buy the sword -------------------------------------------
 	session.trading.bind_merchant(smith.merchant)

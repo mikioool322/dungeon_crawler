@@ -401,6 +401,7 @@ func test_ui_cancel_closes_the_shop() -> void:
 	assert_true(_panel.is_open(), "the shop is open before the key press")
 
 	Input.parse_input_event(_action_event(&"ui_cancel", true))
+	Input.flush_buffered_events()
 	await wait_physics_frames(2)
 	Input.action_release(&"ui_cancel")
 
@@ -502,6 +503,7 @@ func test_the_hud_wires_the_dialogue_the_shop_and_the_inventory_toggle() -> void
 	assert_eq(_session.trading.current_merchant(), _merchant, "with the NPC's merchant bound")
 
 	Input.parse_input_event(_action_event(&"inventory", true))
+	Input.flush_buffered_events()
 	await wait_physics_frames(2)
 	Input.action_release(&"inventory")
 	assert_true(hud.inventory_panel.is_open(), "the inventory action opens the character panel")
@@ -509,6 +511,7 @@ func test_the_hud_wires_the_dialogue_the_shop_and_the_inventory_toggle() -> void
 	assert_false(player.mouse_captured, "and the character panel keeps the input suspended")
 
 	Input.parse_input_event(_action_event(&"inventory", true))
+	Input.flush_buffered_events()
 	await wait_physics_frames(2)
 	Input.action_release(&"inventory")
 	assert_false(hud.inventory_panel.is_open(), "pressing inventory again closes it")

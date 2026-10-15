@@ -445,6 +445,7 @@ func test_ui_cancel_closes_an_open_panel() -> void:
 	assert_true(_panel.is_open(), "the panel is open before the key press")
 
 	Input.parse_input_event(_action_event(&"ui_cancel", true))
+	Input.flush_buffered_events()
 	await wait_physics_frames(2)
 	Input.action_release(&"ui_cancel")
 
