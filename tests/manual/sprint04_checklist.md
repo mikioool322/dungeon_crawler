@@ -62,16 +62,18 @@ is the only save point, `TAB` opens the character panel, `E` interacts, `ESC` cl
 ## Mutation checks
 
 Each mutation is applied by hand, the suite is run, the failing tests are recorded, and the mutation
-is reverted before anything is committed. A mutation that nothing catches is a coverage gap.
+is reverted before anything is committed. A mutation that nothing catches is a coverage gap. The
+runs below are executed by the **independent QA pass**; the "caught by" column is filled from that
+run's report, not from the authors' expectation.
 
-| # | Mutation | Caught by | Reverted |
-|---|----------|-----------|----------|
-| 1 | `CharacterStats.set_modifiers` accumulates instead of replacing | `tests/unit/stats/test_character_stats.gd::test_replacing_a_bucket_never_accumulates` | yes |
-| 2 | `EquipmentState.equip` fills the slot without taking the copy out of the bag | `tests/unit/equipment/test_equipment_state.gd::test_equipping_moves_the_item_out_of_the_bag` | yes |
-| 3 | `AttackController.request_attack` does not pin the damage | `tests/integration/test_stats_combat.gd::test_a_mid_swing_stat_change_cannot_alter_the_swing` | yes |
-| 4 | `TradingService.buy` trusts the caller instead of re-validating | `tests/unit/trade/test_trading_service.gd::test_buying_without_enough_gold_is_refused_and_changes_nothing` | yes |
-| 5 | `SaveManager._migrate_v2_to_v3` invents a starting weapon | `tests/unit/save/test_save_v3_equipment.gd::test_the_migration_never_invents_an_equipped_item` | yes |
-| 6 | `HealthComponent.set_max_health` heals to the new maximum | `tests/integration/test_stats_combat.gd::test_raising_max_health_does_not_heal` | yes |
+| # | Mutation | Caught by (QA evidence) | Reverted |
+|---|----------|------------------------|----------|
+| 1 | `CharacterStats.set_modifiers` accumulates instead of replacing | pending independent QA report | pending |
+| 2 | `EquipmentState.equip` fills the slot without taking the copy out of the bag | pending independent QA report | pending |
+| 3 | `AttackController.request_attack` does not pin the damage | pending independent QA report | pending |
+| 4 | `TradingService.buy` trusts the caller instead of re-validating | pending independent QA report | pending |
+| 5 | `SaveManager._migrate_v2_to_v3` invents a starting weapon | pending independent QA report | pending |
+| 6 | `HealthComponent.set_max_health` heals to the new maximum | pending independent QA report | pending |
 
 ## Findings
 
