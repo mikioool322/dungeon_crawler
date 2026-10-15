@@ -230,11 +230,30 @@ func test_loading_drops_unknown_ids_and_slots_and_returns_mismatches_to_the_bag(
 	assert_eq(bag.count_of(VEST), 0, "the equipment record wins over the bag copy")
 
 
-func test_a_slot_mismatch_in_the_save_is_dropped() -> void:
+func test_a_slot_mismatch_in_the_save_is_returned_to_the_bag() -> void:
 	var bag := Inventory.new()
 	var data := {"chest_armor": String(SWORD)}  # a sword in the armour slot
 	var restored := EquipmentState.from_save_dict(data, _registry, bag)
 	assert_eq(restored.get_equipped(EquipmentSlot.Id.CHEST_ARMOR), &"", "mismatch dropped")
+	assert_eq(bag.count_of(SWORD), 1, "and the copy went back to the bag instead of being lost")
+	assert_eq(restored.load_warnings().size(), 1, "the load reports what it changed")
+
+
+func test_a_non_equippable_record_is_returned_to_the_bag_too() -> void:
+	var bag := Inventory.new()
+	var data := {"main_hand": String(ROCK)}  # a rock cannot be worn
+	var restored := EquipmentState.from_save_dict(data, _registry, bag)
+	assert_eq(restored.equipped_slots().size(), 0, "nothing equipped")
+	assert_eq(bag.count_of(ROCK), 1, "the rock is in the bag")
+
+
+func test_unknown_records_report_but_cannot_return_anything() -> void:
+	var bag := Inventory.new()
+	var data := {"main_hand": "item.ghost", "hat": String(SWORD)}
+	var restored := EquipmentState.from_save_dict(data, _registry, bag)
+	assert_eq(restored.equipped_slots().size(), 0, "nothing equipped")
+	assert_eq(bag.count_of(SWORD), 0, "an unknown slot never invents a copy")
+	assert_eq(restored.load_warnings().size(), 2, "both drops are reported")
 
 
 func test_an_empty_save_mapping_yields_empty_equipment() -> void:

@@ -146,9 +146,9 @@ func _build_fixture() -> void:
 	_session = GameSession.new()
 	_session.setup(_registry, SaveManager.new())
 	_session.new_game()
-	# Same documented repair as test_inventory_panel.gd: `new_game()` leaves the
-	# equipment unbound (see that file's fixture note); re-running the documented
-	# `setup()` binds it again so the equip/sell interaction can be exercised.
+	# Same fixture note as test_inventory_panel.gd: the rebuild path re-binds the equipment
+	# (registry, bag, change signal), so the shop interaction runs on a bound session; the
+	# extra documented `setup()` only proves the wiring survives a second call.
 	_session.setup(_registry, SaveManager.new())
 	_session.add_gold(START_GOLD)
 

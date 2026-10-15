@@ -61,19 +61,22 @@ func setup(registry: ContentRegistry, save_manager: SaveManager) -> void:
 		state.inventory.changed.connect(_on_inventory_changed)
 	if not loot.reward_granted.is_connected(_on_reward_granted):
 		loot.reward_granted.connect(_on_reward_granted)
-	if not state.equipment.changed.is_connected(_on_equipment_changed):
-		state.equipment.changed.connect(_on_equipment_changed)
 	if not stats.changed.is_connected(_on_stats_changed):
 		stats.changed.connect(_on_stats_changed)
 	if not trading.trade_completed.is_connected(_on_trade_completed):
 		trading.trade_completed.connect(_on_trade_completed)
 
 
-## (Re)binds the equipment record to this session's registry and bag. Called after every
-## rebuild (`setup`, `new_game`, load): `reset_to_new_game` replaces the record with a
-## fresh, unwired instance, and an unwired record cannot equip anything.
+## (Re)binds the durable records to this session: the equipment record (its registry, its bag
+## and its change signal), the trade service and the bag signal. Called after every rebuild
+## (`setup`, `new_game`, load): `reset_to_new_game` and `_apply_equipment` install fresh
+## instances, and an unwired record can neither equip nor notify.
 func _wire_equipment() -> void:
 	state.equipment.setup(_registry, state.inventory)
+	if not state.equipment.changed.is_connected(_on_equipment_changed):
+		state.equipment.changed.connect(_on_equipment_changed)
+	if not state.inventory.changed.is_connected(_on_inventory_changed):
+		state.inventory.changed.connect(_on_inventory_changed)
 	# The trade service holds the equipment record for its defensive "equipped" check, so a
 	# rebuilt record must be handed to it too (a stale reference would check the wrong one).
 	trading.setup(state, _registry, state.equipment)
@@ -118,6 +121,27 @@ func unequip_slot(slot: int) -> StringName:
 	if code == EquipmentState.CODE_OK:
 		_sync_equipment_modifiers()
 	return code
+
+
+## Opens a merchant's shop. The session is the single seam for trade, so a future rule
+## ("no trading while a dungeon run is active") has exactly one place to live.
+func bind_shop(merchant: MerchantDefinition) -> void:
+	trading.bind_merchant(merchant)
+
+
+## Closes the shop (no merchant bound).
+func close_shop() -> void:
+	trading.bind_merchant(null)
+
+
+## Buys one copy through the session; returns a `TradingService` code.
+func buy_item(item_id: StringName) -> StringName:
+	return trading.buy(item_id)
+
+
+## Sells one copy through the session; returns a `TradingService` code.
+func sell_item(item_id: StringName) -> StringName:
+	return trading.sell(item_id)
 
 
 ## Pushes the effective stats into a freshly spawned rig (ADR-016). Must run after the
@@ -295,7 +319,9 @@ func apply_snapshot(snapshot: SaveSnapshot) -> PackedStringArray:
 	state.reset_to_new_game(DEFAULT_MAX_HEALTH)
 
 	if is_finite(snapshot.health):
-		state.health = clampf(snapshot.health, 0.0, DEFAULT_MAX_HEALTH)
+		# Floor only: the ceiling depends on the equipment, which is rebuilt below, so the real
+		# clamp happens once the effective maximum is known (an item may raise it above 100).
+		state.health = maxf(snapshot.health, 0.0)
 	else:
 		warnings.append("save health is not a finite number; using full health")
 		state.health = DEFAULT_MAX_HEALTH
@@ -375,8 +401,16 @@ func _apply_equipment(snapshot: SaveSnapshot, warnings: PackedStringArray) -> vo
 	if _registry == null:
 		return
 	state.equipment = EquipmentState.from_save_dict(snapshot.equipment, _registry, state.inventory)
+	for message in state.equipment.load_warnings():
+		warnings.append(message)
 	_wire_equipment()
 	_sync_equipment_modifiers()
+	# The saved HP may exceed the base maximum (an item with a max-health bonus): clamp it to
+	# the effective ceiling now that the equipment is known, never to the hard-coded default.
+	if stats.is_ready():
+		state.health = clampf(
+			state.health, 0.0, stats.effective(CharacterStats.MAX_HEALTH)
+		)
 
 
 ## Dungeons a new game starts with (definitions without prerequisites).

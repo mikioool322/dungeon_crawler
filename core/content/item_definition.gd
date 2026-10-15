@@ -53,8 +53,13 @@ enum Kind { MISC, CONSUMABLE, WEAPON, KEY }
 ## Null means "use the character's default profile".
 @export var attack_definition: AttackDefinition = null
 
-## Merchant pricing base, in whole gold. `0` means the item cannot be traded.
+## Merchant pricing base, in whole gold. Below `MINIMUM_TRADABLE_VALUE` the item cannot be
+## traded: a tradable item needs `base_value >= 2` so its sell price is always strictly below
+## its buy price (ADR-017).
 @export var base_value: int = 0
+
+## Smallest `base_value` a tradable item may have (see above).
+const MINIMUM_TRADABLE_VALUE: int = 2
 
 
 ## Additive modifiers this item contributes while equipped, keyed by `CharacterStats`
@@ -77,7 +82,7 @@ func is_equippable() -> bool:
 
 
 func is_tradable() -> bool:
-	return base_value > 0
+	return base_value >= MINIMUM_TRADABLE_VALUE
 
 
 ## Returns one message per invalid field; empty means the definition is usable.
@@ -102,6 +107,16 @@ func validation_errors() -> PackedStringArray:
 		errors.append("base_value must be >= 0 (got %d)" % base_value)
 	if not is_finite(movement_bonus):
 		errors.append("movement_bonus must be finite (got %f)" % movement_bonus)
+	if max_health_bonus < 0:
+		# A negative ceiling would leave an actor alive with zero maximum HP.
+		errors.append("max_health_bonus must be >= 0 (got %d)" % max_health_bonus)
+	if slot != EquipmentSlot.Id.NONE and attack_definition != null:
+		if not is_equal_approx(attack_definition.damage, 0.0):
+			# The stats own the damage (ADR-016); a number here would be silently ignored.
+			errors.append(
+				"an equipment attack profile owns reach/timings only; damage must be 0 (got %f)"
+				% attack_definition.damage
+			)
 	if attack_definition != null and not attack_definition.is_valid():
 		for problem in attack_definition.validation_errors():
 			errors.append("attack_definition: %s" % problem)

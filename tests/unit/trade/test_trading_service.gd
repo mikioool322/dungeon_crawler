@@ -183,6 +183,35 @@ func test_selling_an_equipped_item_is_refused() -> void:
 	assert_eq(_trading.sell(SWORD), TradingService.CODE_EQUIPPED, "the defensive equipped check fires first")
 
 
+func test_a_spare_copy_of_an_equipped_item_is_sellable() -> void:
+	# Ownership A is per copy, not per id: the worn sword is untouchable, a second one in the
+	# bag is ordinary goods.
+	_state.inventory.add(_definition(SWORD), 1)
+	_state.inventory.add(_definition(SWORD), 1)
+	_equipment.equip(SWORD, EquipmentSlot.Id.MAIN_HAND)
+	assert_eq(_state.inventory.count_of(SWORD), 1, "one copy stayed in the bag")
+	assert_eq(_trading.can_sell(SWORD), TradingService.CODE_OK, "the spare is sellable")
+	assert_eq(_trading.sell(SWORD), TradingService.CODE_OK, "sold the spare")
+	assert_eq(_state.inventory.count_of(SWORD), 0, "the bag is empty of swords")
+	assert_true(_equipment.is_equipped(SWORD), "the worn copy is untouched")
+	assert_eq(
+		_trading.sell(SWORD), TradingService.CODE_EQUIPPED,
+		"only the worn copy is left, and it is not for sale"
+	)
+
+
+func test_an_item_worth_one_gold_is_not_tradable() -> void:
+	var cheap := ItemDefinition.new()
+	cheap.id = &"item.test.cheap"
+	cheap.display_name = "Copper Trinket"
+	cheap.kind = ItemDefinition.Kind.MISC
+	cheap.stackable = false
+	cheap.max_stack = 1
+	cheap.base_value = 1
+	assert_false(cheap.is_tradable(), "base_value 1 would make sell == buy")
+	assert_true(cheap.is_valid(), "but it is still a valid item definition")
+
+
 func test_selling_a_non_tradable_item_is_refused() -> void:
 	_state.inventory.add(_definition(WORTHLESS), 1)
 	assert_eq(_trading.sell(WORTHLESS), TradingService.CODE_NOT_TRADABLE, "base_value 0")

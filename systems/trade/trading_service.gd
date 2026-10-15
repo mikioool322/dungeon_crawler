@@ -122,11 +122,12 @@ func can_sell(item_id: StringName) -> StringName:
 		return CODE_UNKNOWN_ITEM
 	if not definition.is_tradable():
 		return CODE_NOT_TRADABLE
-	if _equipment != null and _equipment.is_equipped(item_id):
-		# Impossible under ownership semantics A (an equipped item is not in the bag);
-		# kept as a defensive check for a hand-edited state.
-		return CODE_EQUIPPED
 	if _state.inventory.count_of(item_id) < 1:
+		# Nothing to sell in the bag. Either the player owns nothing, or the only copy is worn
+		# (ownership A); the equipped code is the clearer of the two refusals. A second copy of
+		# the same id sitting in the bag IS sellable, so the check is per copy, not per id.
+		if _equipment != null and _equipment.is_equipped(item_id):
+			return CODE_EQUIPPED
 		return CODE_NOT_IN_BAG
 	return CODE_OK
 

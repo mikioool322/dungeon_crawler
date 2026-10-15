@@ -26,9 +26,10 @@ const MOVEMENT_SPEED: StringName = &"movement_speed"
 ## Every stat this build knows, in panel order.
 const STATS: Array[StringName] = [MAX_HEALTH, ATTACK_DAMAGE, DEFENSE, MOVEMENT_SPEED]
 
-## Smallest allowed value per stat (speed may not be zero: a frozen player is a bug).
+## Smallest allowed value per stat (speed may not be zero: a frozen player is a bug, and a
+## zero HP ceiling would leave an actor alive with no maximum).
 const MINIMUM: Dictionary = {
-	MAX_HEALTH: 0.0,
+	MAX_HEALTH: 1.0,
 	ATTACK_DAMAGE: 0.0,
 	DEFENSE: 0.0,
 	MOVEMENT_SPEED: 0.01,
@@ -40,10 +41,19 @@ var _effective: Dictionary = {}
 var _ready: bool = false
 
 
-## Copies the base values out of a definition. False (and inert stats) when invalid.
+## Copies the base values out of a definition. False (and inert stats) when invalid: an
+## already-ready instance is cleared too, so a broken definition can never leave stale values
+## behind for a consumer to read.
 func setup(definition: PlayerDefinition) -> bool:
 	if definition == null or not definition.is_valid():
 		push_warning("CharacterStats: refusing an invalid PlayerDefinition")
+		_base.clear()
+		_modifiers.clear()
+		_ready = false
+		var had_values := not _effective.is_empty()
+		_effective.clear()
+		if had_values:
+			changed.emit()
 		return false
 	_base = {
 		MAX_HEALTH: definition.max_health,
@@ -106,6 +116,10 @@ func set_modifiers(source_id: StringName, modifiers: Dictionary) -> bool:
 			)
 			continue
 		cleaned[key] = float(value)
+	if cleaned.is_empty():
+		# Every entry was unknown or non-finite: the source contributes nothing, so it must not
+		# linger as a no-op bucket in `sources()`.
+		return clear_modifiers(source_id)
 	_modifiers[source_id] = cleaned
 	return _recalculate()
 

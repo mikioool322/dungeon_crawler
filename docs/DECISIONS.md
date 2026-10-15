@@ -364,9 +364,10 @@ Decision:
 - One bucket per equipment slot, keyed by the stable slot name: a weapon swap replaces the
   `main_hand` bucket, which is how the old bonus disappears. No bookkeeping, no unbounded buckets.
 - Ownership semantics A: an equipped item leaves the bag (`equip` removes one copy, `unequip` returns
-  it, a swap returns the previous item in the same atomic operation). The invariant
-  `is_equipped(id) => count_of(id) == 0` is local and testable, the count-based `Inventory` API is
-  untouched, and selling an equipped item is impossible by construction.
+  it, a swap returns the previous item in the same atomic operation). The invariant is per copy, not
+  per id: the *equipped* copy is never in the bag, while the bag may legitimately hold further copies
+  of the same item id (buy two swords, wear one, sell the other). Selling a worn copy is therefore
+  impossible by construction, and the count-based `Inventory` API is untouched.
 - `EquipmentState` is durable runtime state inside `PlayerSessionState`, Node-free, and serialised as
   stable slot names -> item ids. On load the equipment record is authoritative: an unknown id or slot
   is dropped with a warning, a slot mismatch returns the copy to the bag, and a bagged duplicate is
@@ -416,8 +417,9 @@ Decision:
 - `TradingService` is the only trade writer and the only place with a price rule:
   `buy_price = ItemDefinition.base_value`, `sell_price = max(1, floor(base_value * SELL_RATE))` with
   `SELL_RATE = 0.5`; `base_value <= 0` means "not tradable". The UI only reads prices.
-- Stock is transient per merchant binding (Sprint 04: unlimited stock of the configured items, one
-  counter per item), never saved: a reload resets stock and gold together, so no buy/sell loop exists.
+- Stock is unlimited for the configured items (the owner's Sprint 04 scope) and nothing about it is
+  saved or tracked: a reload resets gold and stock together, so no buy/sell loop exists. A future
+  limited-stock merchant adds the counter inside this service and nowhere else.
 - Every operation re-validates internally (never trusting `can_buy`/`can_sell`), and is atomic:
   full validation, then bag, then gold, then stock, then the signal. A refusal mutates nothing; a
   duplicate UI event fails on the second attempt (stock or gold).

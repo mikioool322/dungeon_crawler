@@ -31,6 +31,7 @@ const CODE_NOT_READY := &"not_ready"
 var _equipped: Dictionary = {}
 var _registry: ContentRegistry = null
 var _inventory: Inventory = null
+var _load_warnings: PackedStringArray = PackedStringArray()
 
 
 ## Binds the session's inventory and content registry. Safe to call again.
@@ -127,7 +128,11 @@ func equip(item_id: StringName, slot: int) -> StringName:
 			# The slot held an id this build no longer knows: return it nowhere, drop it.
 			push_warning("EquipmentState: dropping unknown equipped item '%s'" % previous)
 		else:
-			_inventory.add(definition, 1)
+			var returned: int = _inventory.add(definition, 1)
+			if returned != 1:
+				# The bag refused the outgoing item: undo the removal instead of losing it.
+				_inventory.add(_definition_of(item_id), 1)
+				return CODE_NOT_READY
 	_equipped[slot] = item_id
 	changed.emit()
 	return CODE_OK
@@ -182,27 +187,41 @@ static func from_save_dict(
 	for key: Variant in data:
 		var slot := EquipmentSlot.from_name(StringName(key))
 		if not EquipmentSlot.is_supported(slot):
-			push_warning("EquipmentState: dropping unknown slot '%s' from the save" % key)
+			state._note_load_warning("equipment dropped unknown slot '%s'" % key)
 			continue
 		var item_id := StringName(str(data[key]))
 		var definition := registry.find_item(item_id)
 		if definition == null:
-			push_warning("EquipmentState: dropping unknown equipped item '%s'" % item_id)
+			state._note_load_warning("equipment dropped unknown item '%s'" % item_id)
 			continue
 		if definition.slot != slot:
-			push_warning(
-				"EquipmentState: dropping '%s' from slot '%s' (item slot mismatch)"
+			# The equipment record was the only place holding this copy, so returning it to the
+			# bag is the difference between a mismatch and losing the item (ADR-015).
+			state._note_load_warning(
+				"equipment '%s' did not belong in slot '%s'; returned to the bag"
 				% [item_id, EquipmentSlot.name_of(slot)]
 			)
+			inventory.add(definition, 1)
 			continue
 		if state._equipped.values().has(item_id):
-			push_warning("EquipmentState: dropping duplicate equipped item '%s'" % item_id)
+			state._note_load_warning("equipment dropped a duplicate '%s'" % item_id)
 			continue
 		# The equipment record is authoritative: an equipped copy is not in the bag.
 		if inventory.count_of(item_id) >= 1:
 			inventory.remove(item_id, 1)
 		state._equipped[slot] = item_id
 	return state
+
+
+## Warnings collected while loading a save: dropped records and returned copies. The session
+## appends them to the boot result so a load never loses equipment silently.
+func load_warnings() -> PackedStringArray:
+	return _load_warnings
+
+
+func _note_load_warning(message: String) -> void:
+	push_warning("EquipmentState: %s" % message)
+	_load_warnings.append(message)
 
 
 func _definition_of(item_id: StringName) -> ItemDefinition:

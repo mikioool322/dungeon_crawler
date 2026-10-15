@@ -188,8 +188,10 @@ func _perform_travel(
 	world_slot.add_child(next_world)
 	_world = next_world
 	_player = player
-	_session.apply_to_player(player)
+	# Stats first: they raise the maximum HP (and the defense/profile) BEFORE the saved HP is
+	# restored, so a player above the base maximum keeps it across a world transition.
 	_session.apply_stats_to_player(player)
+	_session.apply_to_player(player)
 	_session.note_location(world_id, resolved_spawn)
 	_connect_player_death(player)
 	_connect_player_loadout()

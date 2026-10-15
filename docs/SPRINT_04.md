@@ -68,12 +68,14 @@ signal dialogue_requested(npc: NpcDefinition)
 
 class_name TradingService extends RefCounted       # systems/trade/trading_service.gd
 signal trade_completed(kind, item_id, price, gold_total)
-const CODE_OK/CODE_UNKNOWN_ITEM/CODE_NOT_TRADABLE/CODE_NO_STOCK/CODE_NOT_ENOUGH_GOLD/CODE_NOT_IN_BAG/CODE_EQUIPPED/CODE_INVALID
+const CODE_OK/CODE_UNKNOWN_ITEM/CODE_NOT_TRADABLE/CODE_NOT_STOCKED/CODE_NOT_ENOUGH_GOLD/CODE_NOT_IN_BAG/CODE_EQUIPPED/CODE_INVALID
 const SELL_RATE := 0.5                             # the only price rule
 func setup(state, registry, equipment) -> void
-func bind_merchant(merchant) -> void               # fresh TRANSIENT stock
-func buy_price(item_id)/sell_price(item_id)/stock_of(item_id) -> int
+func bind_merchant(merchant) -> void               # stock is unlimited in Sprint 04 (nothing tracked)
+func is_stocked(item_id) -> bool
+func buy_price(item_id)/sell_price(item_id) -> int
 func can_buy(item_id)/buy(item_id)/can_sell(item_id)/sell(item_id) -> StringName
+# A tradable item needs base_value >= 2 so its sell price is always strictly below its buy price.
 
 # ItemDefinition (extended): slot, attack_bonus, defense_bonus, max_health_bonus, movement_bonus,
 # attack_definition (weapons: reach/timings only), base_value (merchant price); equipment_modifiers()

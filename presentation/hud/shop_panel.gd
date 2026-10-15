@@ -79,7 +79,7 @@ func rows() -> Array[Dictionary]:
 func open(merchant: MerchantDefinition) -> void:
 	_ensure_layout()
 	if _session != null:
-		_session.trading.bind_merchant(merchant)
+		_session.bind_shop(merchant)
 	_open = true
 	visible = true
 	_update_title()
@@ -96,7 +96,7 @@ func close() -> void:
 	_open = false
 	visible = false
 	if _session != null:
-		_session.trading.bind_merchant(null)
+		_session.close_shop()
 	_set_player_input(true)
 
 
@@ -124,7 +124,7 @@ func buy(item_id: StringName) -> StringName:
 	if _session == null:
 		_set_status("Cannot buy %s (%s)" % [_display_name(item_id), TradingService.CODE_INVALID])
 		return TradingService.CODE_INVALID
-	var code := _session.trading.buy(item_id)
+	var code := _session.buy_item(item_id)
 	if code == TradingService.CODE_OK:
 		_set_status("Bought %s for %d gold" % [
 			_display_name(item_id), _session.trading.buy_price(item_id)
@@ -140,7 +140,7 @@ func sell(item_id: StringName) -> StringName:
 	if _session == null:
 		_set_status("Cannot sell %s (%s)" % [_display_name(item_id), TradingService.CODE_INVALID])
 		return TradingService.CODE_INVALID
-	var code := _session.trading.sell(item_id)
+	var code := _session.sell_item(item_id)
 	if code == TradingService.CODE_OK:
 		_set_status("Sold %s for %d gold" % [
 			_display_name(item_id), _session.trading.sell_price(item_id)

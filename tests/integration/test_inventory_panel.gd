@@ -97,12 +97,10 @@ func _build_fixture() -> void:
 	_session = GameSession.new()
 	_session.setup(_registry, SaveManager.new())
 	_session.new_game()
-	# Domain wiring gap (reported, deliberately not fixed in this worktree):
-	# `PlayerSessionState.reset_to_new_game()` replaces `equipment` with a fresh,
-	# unbound `EquipmentState` and `GameSession.new_game()` never re-binds it, so
-	# `equip_item()` / `unequip_slot()` answer `not_ready` after a new game (the shipped
-	# `Main` boot path hits the same gap). `setup()` is documented safe to call again;
-	# the panel contract below is exercised against a session whose equipment is bound.
+	# `new_game()` replaces the durable equipment record; `GameSession._wire_equipment()`
+	# re-binds it (registry, bag and change signal) on every rebuild, so the equip/sell paths
+	# below run against a bound session exactly as the shipped boot does. The extra `setup()`
+	# is documented as safe and is kept only to prove the wiring survives being called twice.
 	_session.setup(_registry, SaveManager.new())
 
 	_panel = InventoryPanel.new()

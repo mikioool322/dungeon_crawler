@@ -330,6 +330,34 @@ func _check_merchant_references() -> void:
 				errors.append("merchant '%s': stock item '%s' is not listed in the manifest" % [
 					merchant_id, item.id
 				])
+			elif not _same_item_data(_items[item.id] as ItemDefinition, item):
+				# An authored stock copy that drifted from the manifest item would be a second
+				# source of the same numbers (ADR-015); the registry refuses the ambiguity.
+				errors.append(
+					"merchant '%s': the stock copy of '%s' differs from the manifest item"
+					% [merchant_id, item.id]
+				)
+
+
+## True when two item resources describe the same gameplay numbers (the manifest item is the
+## single source; a stock reference must not drift from it).
+func _same_item_data(a: ItemDefinition, b: ItemDefinition) -> bool:
+	if a == b:
+		return true
+	if a == null or b == null:
+		return false
+	return (
+		a.display_name == b.display_name
+		and a.kind == b.kind
+		and a.stackable == b.stackable
+		and a.max_stack == b.max_stack
+		and a.slot == b.slot
+		and a.attack_bonus == b.attack_bonus
+		and a.defense_bonus == b.defense_bonus
+		and a.max_health_bonus == b.max_health_bonus
+		and is_equal_approx(a.movement_bonus, b.movement_bonus)
+		and a.base_value == b.base_value
+	)
 
 
 func _check_npc_references() -> void:
