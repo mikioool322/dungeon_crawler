@@ -5,8 +5,10 @@ extends RefCounted
 ## `PlayerSessionState.gold` and `PlayerSessionState.claimed_reward_keys` (ADR-009).
 ##
 ## Invariants:
-## - `grant()` is idempotent per `grant_key`: a key that is already claimed (in this
-##   run or restored from a save) returns `duplicate` and changes nothing.
+## - `grant()` is idempotent per `grant_key` and ledger (ADR-013): a key already claimed in
+##   the current run returns `duplicate` and changes nothing; a story key already claimed in
+##   the save does the same. Run-scoped keys are never persisted, so a new run can earn them
+##   again.
 ## - All validation (grant shape, service readiness, registry lookup) completes before
 ##   the first mutation. A rejected grant therefore neither changes gold/bag nor
 ##   consumes the key, so the same key can still be granted later.

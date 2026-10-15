@@ -14,7 +14,7 @@ extends Interactable
 ##   `unknown_item`) instead of a second set of reward rules living here.
 ## - `grant_key` is the stable idempotency key built by
 ##   `LootGrant.key_for(world_id, loot_source_id)` - never a node name. A key that
-##   was already claimed in this run (or restored from a save) reports
+##   was already claimed in this run reports
 ##   `ok("already_collected")`: succeeding is correct, because the drop is either a
 ##   stale duplicate or an already-collected key, and either way it must not award
 ##   anything twice.

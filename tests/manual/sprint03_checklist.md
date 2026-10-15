@@ -187,31 +187,30 @@ no headless run may report them as PASS:
 - **Rendering and pacing**: lighting, transition popping, shadow and material artefacts,
   GPU-driver errors, frame time on the first swap, in a fight, and with the panel open.
 
-## Validation evidence (headless, this branch)
+## Validation evidence (headless, final state)
 
 ```
 GODOT = "C:\Users\mikio\Desktop\Godot_v4.7.2-stable_win64_console.exe"
 
 & $GODOT --headless --path . --editor --quit          # exit 0, no parse errors
 & $GODOT --headless --path . -s res://tests/run_tests.gd
-    === summary: 425 test(s), 3445 assertion(s), 0 failing test(s) ===
+    === summary: 440 test(s), 3510 assertion(s), 0 failing test(s) ===
     RESULT: PASS  (exit 0)
 & $GODOT --headless --path . --quit-after 300         # boot smoke, exit 0, 0 error/leak lines
 python tools/validate_pack.py                         # PASS: 10 skills, 7 agents, exit 0
 ```
 
-Baseline comparison (same machine, same engine):
+History (same machine, same engine):
 
 | Run | Tests | Assertions | Failing | `SCRIPT ERROR` lines | ObjectDB leak line |
 |-----|-------|------------|---------|----------------------|--------------------|
-| pre-QA tip `5ee3711` | 415 | 3206 | 0 | 1 (`test_sprint02_loop.gd:522`) | 31 leaked / 13 resources |
-| this branch `feat/s03-qa` | 425 | 3445 | 0 | 1 (same line) | 31 leaked / 13 resources |
+| QA branch `feat/s03-qa` (`b4e36f3`) | 425 | 3445 | 0 | 1 (`test_sprint02_loop.gd:522`) | 31 leaked / 13 resources |
+| final `master` (`c004e56`) | 440 | 3510 | 0 | none | none |
 
-Warnings added by this branch's tests (the complete diff of the warning inventory):
-`DungeonService: objective 'objective.dungeon01.enemy_a' reported without an active run`
-(1×, the deliberate duplicate-report check) and
-`WorldRouter: travel to 'world.dungeon.proto02' refused (locked)` (2×, the two blocked
-travels). No new "world without context" warning, no new leak.
+The QA-found defects (duplicate world mapping, unknown dungeon id retained, leaks, the
+type-mismatched assertion) and the review findings were fixed in `ef8c25c` and `c004e56`; the
+suite now exits with no `SCRIPT ERROR` and no leak warning at all. The warnings added by the new
+tests are only the deliberate ones: one duplicate objective report and two blocked travels.
 
 Temporary save slots used by the new tests (`user://test_dungeon_gate_slot.json`,
 `user://test_boot_locked_world_slot.json`, `user://test_dungeon_completion_slot.json`) are
@@ -234,14 +233,21 @@ that failed are the ones the safeguard exists for.
 
 ## Findings and reproductions (this pass)
 
-| ID | Severity | Finding |
-|----|----------|---------|
-| F1 | MEDIUM | The "duplicate world mapping" acceptance criterion is not implemented: two dungeons may point at the same `world_id` and the registry stays valid; `find_dungeon_for_world()` then returns the first one, so the second dungeon's gate never applies. Reproduction: repro script case `R8`. |
-| F2 | LOW | `GameSession._apply_progress()` warns `dropped unknown dungeon id from save: X` but keeps `X` in `DungeonProgress`; the next save writes it back, so the diagnostic is misleading and dead data accumulates. Reproduction: repro script Part 2. |
-| F3 | LOW | Pre-existing runtime-cleanliness failure: the suite (and the boot smoke) report `31 ObjectDB instances were leaked at exit` and `13 resources still in use at exit`, contradicting AC-34 ("no ObjectDB leak warning"). Identical counts at `5ee3711`, so not introduced by this pass. |
-| F4 | LOW | Pre-existing suite defect: `tests/integration/test_sprint02_loop.gd:522` compares a JSON `Array` with a `PackedStringArray`, which raises `SCRIPT ERROR: Invalid operands 'Array' and 'PackedStringArray' in operator '=='` inside `assert_eq`. The assertion never runs (the test still counts as PASS), so the "save holds the dungeon completion" check is silently skipped. Identical at `5ee3711`. |
+| ID | Severity | Finding | Status |
+|----|----------|---------|--------|
+| F1 | MEDIUM | The "duplicate world mapping" acceptance criterion was not implemented: two dungeons could point at the same `world_id` and the registry stayed valid; `find_dungeon_for_world()` then returned the first one, so the second dungeon's gate never applied. | **FIXED in `ef8c25c`** (`ContentRegistry` reports a world already owned by another dungeon) + `tests/unit/content/test_dungeon_registry.gd` |
+| F2 | LOW | `GameSession._apply_progress()` warned `dropped unknown dungeon id from save: X` but kept `X` in `DungeonProgress`; the next save wrote it back. | **FIXED in `ef8c25c`** (`DungeonProgress.drop_unknown()` + the session drops unknown ids) + a `test_save_round_trip.gd` case |
+| F3 | LOW | Runtime cleanliness: the suite reported `31 ObjectDB instances were leaked at exit` and `13 resources still in use at exit`. | **FIXED in `ef8c25c`** (a reference cycle between the domain test and the service it connected lambdas to) — the final suite exits with no leak line |
+| F4 | LOW | `tests/integration/test_sprint02_loop.gd:522` compared a JSON `Array` with a `PackedStringArray`, which raised `SCRIPT ERROR` inside `assert_eq`; the assertion never ran while the test counted as PASS. | **FIXED in `ef8c25c`** (both sides wrapped in `Array(...)`) |
 
-Reproduction output (read-only script run in a throwaway copy; not committed):
+The independent review that followed (`c004e56`) found 0 CRITICAL/HIGH and 6 LOW + 3 INFO; the LOW
+items are fixed in that commit (the board's entry button now follows the gate, the interaction ray
+is suspended while the panel is open, the board no longer writes jargon into the status line,
+`load_or_new` appends instead of replacing load warnings, and the comments/docstrings named in the
+review were corrected). The three INFO items were documentation-only and are also corrected.
+
+Reproduction output from the QA pass (read-only script run in a throwaway copy; not committed),
+kept as the historical evidence for F1/F2:
 
 ```
 --- Part 1: dungeon registry rules (negative paths) ------------------
@@ -252,11 +258,11 @@ R4 unknown regular reward | expected 'regular_reward_id 'reward.missing' is not 
 R5 unknown story reward | expected 'first_clear_reward_id 'reward.missing' is not listed' | REPORTED
 R6 unreachable dungeon | expected 'cannot be unlocked - no start dungeon reaches it' | REPORTED
 R7 duplicate dungeon id | expected 'duplicates the id 'dungeon.repro.a'' | REPORTED
-R8 duplicate world mapping | expected 'duplicate world' | NOT REPORTED
+R8 duplicate world mapping | expected 'duplicate world' | NOT REPORTED  (fixed in ef8c25c)
         observed errors: []
 --- Part 2: unknown completed dungeon id ----------------------------
 warnings                     = ["dropped unknown dungeon id from save: dungeon.ghost"]
-progress.completed_ids()     = [&"dungeon.ghost"]
+progress.completed_ids()     = [&"dungeon.ghost"]   (fixed: now dropped)
 progress.is_completed(ghost) = true
 re-saved completed list       = ["dungeon.ghost"]
 ```

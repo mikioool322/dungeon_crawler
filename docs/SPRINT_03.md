@@ -111,7 +111,7 @@ a completion; the session seeds the start dungeons so dungeon 01 stays available
 
 | State | Writer |
 |-------|--------|
-| `DungeonProgress` | `DungeonService` only |
+| `DungeonProgress` | `DungeonService` at runtime; `GameSession` only while reconstructing from a save or starting a new game (ADR-010) |
 | `DungeonRunState` fields | `DungeonService` (lifecycle/objectives) and `WorldHost` facts (`mark_enemy_defeated`, `mark_chest_opened`) |
 | `LootService` ledgers | `LootService` only |
 | session gold/inventory/claimed keys | `LootService` only |
@@ -133,8 +133,8 @@ a completion; the session seeds the start dungeons so dungeon 01 stays available
 | W4 | Content: 2 dungeons, 5 new rewards, manifest via the generator | coordinator | done |
 | W5 | Hub board + selection panel + UI input focus | `godot-specialist` | done (90fb5eb) |
 | W6 | Test updates (Sprint 02 expectations) + Sprint 03 suites + manual checklist | coordinator + `gameplay-engineer` | done (676d3ba, dae194f) |
-| W7 | Independent QA: gate/boot/completion integration, mutation checks, manual checklist | `qa-engineer` | in progress |
-| W8 | Independent review + fixes + re-validation | `reviewer` | planned |
+| W7 | Independent QA: gate/boot/completion integration, mutation checks, manual checklist | `qa-engineer` | done (b4e36f3; findings fixed in ef8c25c) |
+| W8 | Independent review + fixes + re-validation | `reviewer` | done (c004e56; 0 CRITICAL/HIGH, all LOW/INFO fixed) |
 
 ### Defects found and fixed during Sprint 03
 

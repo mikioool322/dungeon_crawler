@@ -173,7 +173,7 @@ func complete_run() -> bool:
 
 ## Retries story rewards whose dungeon is completed but whose claim is missing (for
 ## example because the reward content was broken on the first attempt). Returns how
-## many rewards were granted. Called at boot and after a completion.
+## many rewards were granted. The boot path calls it; a completion grants directly.
 func claim_pending_first_clear_rewards() -> int:
 	if _registry == null or _progress == null:
 		return 0
