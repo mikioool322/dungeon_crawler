@@ -37,7 +37,8 @@ func _ready() -> void:
 	boot_result = session.load_or_new()
 
 	# Retry story rewards whose claim was never recorded (broken content on the first
-	# attempt). Idempotent: an already claimed reward is skipped.
+	# attempt). Idempotent: an already claimed reward is skipped. The completion path
+	# grants directly; this is the boot-time repair.
 	var pending_rewards := session.dungeons.claim_pending_first_clear_rewards()
 	if pending_rewards > 0:
 		print("[Main] granted %d pending first-clear reward(s)" % pending_rewards)

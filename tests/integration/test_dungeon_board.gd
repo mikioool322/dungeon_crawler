@@ -301,6 +301,74 @@ func test_open_builds_rows_and_close_restores_cursor_and_input() -> void:
 	assert_true(moved > 0.2, "movement resumes after close() (moved %.3f m)" % moved)
 
 
+func test_a_completed_non_repeatable_dungeon_is_not_enterable_from_the_board() -> void:
+	## The gate decides the button, not the visual state: a COMPLETED row for a
+	## non-repeatable dungeon must not offer an entry that silently does nothing.
+	var manifest := ContentManifest.new()
+	var world := WorldDefinition.new()
+	world.id = &"world.test.oneshot"
+	world.display_name = "One Shot World"
+	world.scene = PackedScene.new()
+	world.default_spawn_id = &"spawn.test"
+	var worlds: Array[WorldDefinition] = [world]
+	manifest.worlds = worlds
+
+	var dungeon := DungeonDefinition.new()
+	dungeon.dungeon_id = &"dungeon.test.oneshot"
+	dungeon.display_name = "One Shot"
+	dungeon.world_id = &"world.test.oneshot"
+	dungeon.entry_spawn_id = &"spawn.test"
+	dungeon.completion_objective = &"objective.test.oneshot"
+	dungeon.repeatable = false
+	var dungeons: Array[DungeonDefinition] = [dungeon]
+	manifest.dungeons = dungeons
+
+	var registry := ContentRegistry.build(manifest)
+	assert_true(registry.is_valid(), "fixture manifest: %s" % registry.errors)
+	var session := GameSession.new()
+	session.setup(registry, SaveManager.new())
+	session.new_game()
+	session.progress.mark_completed(&"dungeon.test.oneshot")
+
+	var panel := DungeonPanel.new()
+	add_to_tree(panel)
+	_router = StubRouter.new()
+	add_to_tree(_router)
+	# A minimal rig is enough: the panel only flips input focus and asks for the
+	# InteractionController child (ADR-008).
+	var player := PlayerController.new()
+	var controller := InteractionController.new()
+	controller.name = "InteractionController"
+	player.add_child(controller)
+	add_to_tree(player)
+	panel.bind(session, _router, registry)
+	panel.bind_player(player)
+	panel.open()
+
+	var rows := panel.rows()
+	assert_eq(rows.size(), 1, "one row")
+	assert_eq(rows[0]["state"], &"completed", "the row shows COMPLETED")
+	var button := panel.get_node_or_null("Center/Column/Rows/Dungeon_dungeon_test_oneshot") as Button
+	if button == null:
+		# The exact path depends on the panel's internal container names; find it by meta.
+		for node in panel.find_children("*", "Button", true, false):
+			if node.has_meta(&"dungeon_id") and node.get_meta(&"dungeon_id") == &"dungeon.test.oneshot":
+				button = node as Button
+				break
+	assert_not_null(button, "the row has a button")
+	if button != null:
+		assert_true(button.disabled, "a completed non-repeatable dungeon is not enterable")
+	assert_eq(
+		panel.select(&"dungeon.test.oneshot"),
+		DungeonService.CODE_ALREADY_COMPLETED,
+		"and the gate refuses the entry"
+	)
+	assert_eq(_router.travels.size(), 0, "no travel was requested")
+	assert_false(controller.is_enabled(), "the open panel suspends the interaction ray")
+	panel.close()
+	assert_true(controller.is_enabled(), "closing the panel resumes interaction")
+
+
 func test_ui_cancel_closes_an_open_panel() -> void:
 	_build_board()
 	if _panel == null:

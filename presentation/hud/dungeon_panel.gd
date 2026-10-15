@@ -185,6 +185,11 @@ func _set_player_input(enabled: bool) -> void:
 		return
 	player.set_input_enabled(enabled)
 	player.mouse_captured = enabled
+	# The panel owns the screen: the interaction ray is suspended too, so `interact`
+	# cannot reach a board, portal or shrine behind the open panel (ADR-008 UI focus).
+	var controller := InteractionController.find_on(player)
+	if controller != null:
+		controller.set_enabled(enabled)
 
 
 func _focus_first_enabled() -> void:
@@ -259,7 +264,13 @@ func _build_button(row: Dictionary) -> Button:
 	var button := Button.new()
 	button.name = "Dungeon_%s" % String(row["dungeon_id"]).replace(".", "_")
 	button.text = "%s [%s]" % [row["display_name"], _action_label(state)]
-	button.disabled = state == STATE_LOCKED
+	# The gate decides, not the visual state: a completed non-repeatable dungeon shows
+	# COMPLETED but must not offer an entry that would silently do nothing (ADR-014).
+	var enterable := (
+		_session != null
+		and _session.dungeons.can_enter(row["dungeon_id"]) == DungeonService.CODE_OK
+	)
+	button.disabled = not enterable
 	button.set_meta(&"dungeon_id", row["dungeon_id"])
 	if row["reason"] != "":
 		button.tooltip_text = row["reason"]

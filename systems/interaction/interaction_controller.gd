@@ -68,6 +68,34 @@ var _prompt_visible: bool = false
 var _pending_interact: bool = false
 var _last_interaction_frame: int = -1
 
+## UI focus lock (ADR-008): while false, focus is cleared and `interact` is ignored.
+## The selection panel owns it; gameplay code never needs to.
+var _enabled: bool = true
+
+
+## Suspends or resumes interaction (a UI panel owns the screen). Clears the focus when
+## suspended so a stale prompt cannot stay visible behind the panel.
+func set_enabled(enabled: bool) -> void:
+	if _enabled == enabled:
+		return
+	_enabled = enabled
+	_pending_interact = false
+	if not enabled:
+		_clear_focus()
+
+
+func is_enabled() -> bool:
+	return _enabled
+
+
+## Drops the current focus and republishes the (hidden) prompt.
+func _clear_focus() -> void:
+	if _focus == null:
+		return
+	_focus = null
+	focus_changed.emit(null)
+	_sync_prompt()
+
 
 ## Finds the interaction controller of an actor, or null when the scene breaks the
 ## node contract. Mirrors `HealthComponent.find_on()`: direct child, by name.
@@ -94,6 +122,8 @@ func current_focus() -> Interactable:
 ## the interactor cannot act, or when an interaction was already resolved in this
 ## physics frame. Safe to call from a signal handler.
 func try_interact() -> InteractionResult:
+	if not _enabled:
+		return InteractionResult.unavailable()
 	if not _can_act():
 		return InteractionResult.unavailable()
 	var focus := current_focus()
@@ -115,6 +145,8 @@ func try_interact() -> InteractionResult:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not _enabled:
+		return
 	if not event.is_action_pressed(&"interact"):
 		return
 	# Coalesce every `interact` event of this frame into one request; the physics
@@ -144,6 +176,8 @@ func _update_focus() -> void:
 
 
 func _probe() -> Interactable:
+	if not _enabled:
+		return null
 	if not _can_act():
 		return null
 	if view == null or not is_instance_valid(view) or not view.is_inside_tree():

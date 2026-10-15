@@ -414,8 +414,92 @@ func test_unknown_item_reward_and_world_ids_are_dropped_with_warnings() -> void:
 	assert_eq(session.state.claimed_reward_keys.size(), 1, "exactly one claimed key survives")
 
 
-# --- zero health --------------------------------------------------------------
+func test_an_unknown_dungeon_id_in_the_save_is_dropped_with_a_warning() -> void:
+	## The dungeon progress is filtered the same way items and keys are: an id this build
+	## does not know must not linger in the durable progress (and must be warned about).
+	var data := {
+		"version": SaveSnapshot.CURRENT_VERSION,
+		"health": 80.0,
+		"gold": 4,
+		"items": [],
+		"world_id": "world.hub",
+		"spawn_id": "spawn.hub.start",
+		"claimed_reward_keys": [],
+		"dungeon_progress": {
+			"completed": ["dungeon.01", "dungeon.ghost"],
+			"unlocked": ["dungeon.01", "dungeon.ghost"],
+			"first_clear_claimed": ["dungeon.ghost"],
+			"story_flags": [],
+		},
+	}
+	_write_text(TEST_SAVE_PATH, JSON.stringify(data, "\t"))
 
+	var manager := _new_manager()
+	var session := _new_session(_registry(), manager)
+	var result := session.load_or_new()
+
+	assert_eq(result.status, SaveResult.Status.OK, "the save loads as OK")
+	assert_true(
+		_warnings_contain(result.warnings, "dungeon.ghost"),
+		"the unknown dungeon id is named in a warning: %s" % result.warnings
+	)
+	assert_true(session.progress.is_completed(&"dungeon.01"), "the known completion survives")
+	assert_false(session.progress.is_completed(&"dungeon.ghost"), "the unknown completion is dropped")
+	assert_false(session.progress.is_unlocked(&"dungeon.ghost"), "and so is the unknown unlock")
+	assert_false(
+		session.progress.was_first_clear_claimed(&"dungeon.ghost"), "and the unknown claim"
+	)
+	assert_eq(session.progress.completed_ids(), [&"dungeon.01"] as Array[StringName], "only known ids")
+	assert_true(session.progress.is_unlocked(&"dungeon.02") == false, "locked stays locked")
+	assert_true(session.progress.is_unlocked(&"dungeon.01"), "the start dungeon stays available")
+
+	var resaved := session.to_snapshot().dungeon_progress
+	assert_eq(
+		Array(resaved.get("completed", [])), Array(PackedStringArray(["dungeon.01"])),
+		"the unknown id is not written back"
+	)
+
+
+func test_a_recovered_backup_keeps_its_warning_alongside_the_semantic_ones() -> void:
+	## The load's own warnings (a recovered backup) must survive the semantic filtering
+	## of `apply_snapshot`: `load_or_new` appends, never replaces.
+	var data := {
+		"version": SaveSnapshot.CURRENT_VERSION,
+		"health": 70.0,
+		"gold": 3,
+		"items": [{"id": "item.does_not_exist", "count": 1}],
+		"world_id": "world.hub",
+		"spawn_id": "spawn.hub.start",
+		"claimed_reward_keys": [],
+		"dungeon_progress": {},
+	}
+	_write_text(TEST_SAVE_PATH, JSON.stringify(data, "\t"))
+	# Simulate the crash window of the atomic write: only the backup exists.
+	assert_eq(
+		DirAccess.rename_absolute(
+			ProjectSettings.globalize_path(TEST_SAVE_PATH),
+			ProjectSettings.globalize_path(TEST_SAVE_PATH + ".bak")
+		),
+		OK,
+		"the test can move the save aside"
+	)
+
+	var manager := _new_manager()
+	var session := _new_session(_registry(), manager)
+	var result := session.load_or_new()
+
+	assert_eq(result.status, SaveResult.Status.OK, "the backup is recovered: %s" % result.message)
+	assert_true(
+		_warnings_contain(result.warnings, "recovered the previous save"),
+		"the recovery warning survives: %s" % result.warnings
+	)
+	assert_true(
+		_warnings_contain(result.warnings, "item.does_not_exist"),
+		"and so does the semantic warning: %s" % result.warnings
+	)
+
+
+# --- zero health --------------------------------------------------------------
 func test_zero_health_in_the_save_becomes_full_hp_on_the_next_boot() -> void:
 	var snapshot := SaveSnapshot.new()
 	snapshot.health = 0.0

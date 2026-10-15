@@ -78,7 +78,8 @@ func load_or_new() -> SaveResult:
 		return missing
 	var result := _save_manager.load_snapshot()
 	if result.ok() and result.snapshot != null:
-		result.warnings = apply_snapshot(result.snapshot)
+		# Append, never replace: the load may carry its own warnings (a recovered backup).
+		result.warnings.append_array(apply_snapshot(result.snapshot))
 		gold_changed.emit(state.gold)
 		inventory_changed.emit()
 		location_changed.emit(state.world_id, state.spawn_id)

@@ -11,4 +11,6 @@ signal board_requested()
 
 func _perform_interact(_interactor: Node3D) -> InteractionResult:
 	board_requested.emit()
-	return InteractionResult.ok("dungeon_board")
+	# No status message: the panel opening is the feedback, and the closed success
+	# vocabulary in `InteractionResult` is for gameplay outcomes.
+	return InteractionResult.ok()
