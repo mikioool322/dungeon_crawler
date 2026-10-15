@@ -11,8 +11,9 @@ extends "res://tests/test_case.gd"
 ## Covered here (the unit files cover the base and the portal in isolation):
 ## focus + prompt, wall occlusion, walking out of reach, `enabled = false`, the
 ## `interact` action route through `Input.parse_input_event`, one action per frame,
-## one grant per loot key, a chest that stays in the world, a dead interactor and
-## the explicit "a ray still hits a `monitoring = false` area" verification.
+## one grant per loot key *per run* (scene loot is run-scoped, ADR-013), a chest that
+## stays in the world, a dead interactor and the explicit "a ray still hits a
+## `monitoring = false` area" verification.
 
 ## Ray length used by the fixture (the default).
 const REACH: float = 2.5
@@ -188,10 +189,14 @@ func _spawn_interactable(
 	return interactable
 
 
+## Builds a real session state + loot service and opens a run ledger: chest and pickup
+## grants are run-scoped since Sprint 03 (ADR-013), so a grant without a run would be
+## `invalid`.
 func _setup_loot(registry: ContentRegistry = null) -> void:
 	_state = PlayerSessionState.new()
 	_loot = LootService.new()
 	_loot.setup(_state, registry)
+	_loot.begin_run(1)
 
 
 # --- focus, occlusion, reach --------------------------------------------------
@@ -394,8 +399,9 @@ func test_a_double_press_grants_a_one_shot_pickup_exactly_once() -> void:
 	assert_eq(_resolved[0].message, "granted", "and the loot code as display text")
 	assert_eq(_state.gold, 5, "the grant was applied exactly once (gold)")
 	assert_eq(_state.inventory.count_of(&"item.minor_salve"), 2, "the item was granted exactly once")
-	assert_eq(_state.claimed_reward_keys.size(), 1, "exactly one grant key is claimed")
-	assert_true(_state.is_claimed(key), "the key is the one built by LootGrant.key_for(...)")
+	assert_true(_state.claimed_reward_keys.is_empty(), "a run-scoped grant writes no persistent key")
+	assert_true(_loot.is_claimed_in_run(key), "the key is claimed in the run ledger")
+	assert_false(_loot.is_claimed(key), "and not in the persistent (story) ledger")
 
 	await wait_process_frames(2)
 	assert_false(is_instance_valid(pickup), "the pickup is consumed after the grant")
@@ -458,6 +464,8 @@ func test_a_chest_stays_in_the_world_and_a_claimed_key_never_grants_twice() -> v
 	assert_true(first.succeeded(), "the first open succeeds")
 	assert_eq(first.message, "granted", "and reports the grant")
 	assert_eq(_state.gold, 7, "the gold was granted once")
+	assert_true(_loot.is_claimed_in_run(key), "the chest key is claimed in the run ledger")
+	assert_true(_state.claimed_reward_keys.is_empty(), "and never in the persistent ledger")
 	assert_true(chest.is_used(), "the chest records the open")
 	assert_true(is_instance_valid(chest), "the chest stays in the world")
 	assert_false(chest.can_interact(), "a used chest cannot be opened again")
@@ -476,7 +484,8 @@ func test_a_chest_stays_in_the_world_and_a_claimed_key_never_grants_twice() -> v
 	assert_true(second.succeeded(), "re-opening a claimed chest is a harmless success")
 	assert_eq(second.message, "already_collected", "and says why nothing was granted")
 	assert_eq(_state.gold, 7, "a duplicate grant never awards again")
-	assert_eq(_state.claimed_reward_keys.size(), 1, "still exactly one claimed key")
+	assert_true(_loot.is_claimed_in_run(key), "still exactly one claim in the run ledger")
+	assert_true(_state.claimed_reward_keys.is_empty(), "and still no persistent key")
 	assert_true(reloaded.is_used(), "the second chest records its open too")
 
 
