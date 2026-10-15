@@ -117,6 +117,22 @@ static func from_save_dict(data: Dictionary) -> DungeonProgress:
 	return progress
 
 
+## Drops every recorded id for which `is_known.call(id)` returns false and reports the
+## dropped ids (sorted, unique). Used when loading a save whose content changed
+## (ADR-010 safe fallbacks): an id this build does not know must not linger in progress.
+func drop_unknown(is_known: Callable) -> Array[StringName]:
+	var dropped: Array[StringName] = []
+	for source: Dictionary in [_completed, _unlocked, _first_clear_claimed]:
+		for id: StringName in source.keys():
+			if is_known.call(id):
+				continue
+			source.erase(id)
+			if not dropped.has(id):
+				dropped.append(id)
+	dropped.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
+	return dropped
+
+
 func _read_ids(value: Variant, target: Dictionary) -> void:
 	if not value is Array and not value is PackedStringArray:
 		return

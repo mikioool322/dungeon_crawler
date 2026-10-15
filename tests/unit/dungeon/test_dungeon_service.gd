@@ -42,6 +42,18 @@ func setup() -> void:
 	_grants = []
 
 
+func teardown() -> void:
+	# The service holds Callables that capture this test instance; dropping the test's
+	# own references breaks the cycle so nothing is left for the ObjectDB at exit.
+	_service = null
+	_loot = null
+	_progress = null
+	_state = null
+	_registry = null
+	_completions = []
+	_grants = []
+
+
 # --- fixture -----------------------------------------------------------------
 
 func _build_registry(with_story_reward: bool) -> ContentRegistry:

@@ -520,8 +520,8 @@ func test_full_loop_hub_to_dungeon_loot_return_save_and_reload() -> void:
 			"the one-time story key IS persisted"
 		)
 		assert_eq(
-			loaded.snapshot.dungeon_progress.get("completed", []),
-			PackedStringArray(["dungeon.01"]),
+			Array(loaded.snapshot.dungeon_progress.get("completed", [])),
+			Array(PackedStringArray(["dungeon.01"])),
 			"the save holds the dungeon completion"
 		)
 	for suffix in [".tmp", ".bak"]:

@@ -238,14 +238,14 @@ func apply_snapshot(snapshot: SaveSnapshot) -> PackedStringArray:
 ## and the start dungeons are always available (a v1 migration carries no completions).
 func _apply_progress(snapshot: SaveSnapshot, warnings: PackedStringArray) -> void:
 	progress = DungeonProgress.from_save_dict(snapshot.dungeon_progress)
-	dungeons.setup(_registry, progress, loot)
 	if _registry == null:
+		dungeons.setup(_registry, progress, loot)
 		return
-	var start_ids := _start_dungeon_ids()
-	progress.unlock_all(start_ids)
-	for dungeon_id in progress.completed_ids():
-		if _registry.find_dungeon(dungeon_id) == null:
-			warnings.append("dropped unknown dungeon id from save: %s" % dungeon_id)
+	var known := func(id: StringName) -> bool: return _registry.find_dungeon(id) != null
+	for dropped in progress.drop_unknown(known):
+		warnings.append("dropped unknown dungeon id from save: %s" % dropped)
+	progress.unlock_all(_start_dungeon_ids())
+	dungeons.setup(_registry, progress, loot)
 
 
 ## Dungeons a new game starts with (definitions without prerequisites).

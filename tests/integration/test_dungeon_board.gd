@@ -12,6 +12,7 @@ extends "res://tests/test_case.gd"
 ## exactly like `GameHud` does, so the recorded call is the signal's payload.
 
 const WORLD_ID := &"world.test.hub"
+const LOCKED_WORLD_ID := &"world.test.vault"
 const START_ID := &"dungeon.test.start"
 const LOCKED_ID := &"dungeon.test.locked"
 const START_NAME := "Dungeon 01"
@@ -47,14 +48,21 @@ func teardown() -> void:
 
 # --- fixture ------------------------------------------------------------------
 
-## One world, a start dungeon (no prerequisites) and a dependent dungeon that the start
-## dungeon's first clear unlocks, so the registry's reachability check stays green.
+## Two worlds (each dungeon owns exactly one, ADR-014), a start dungeon (no prerequisites)
+## and a dependent dungeon that the start dungeon's first clear unlocks, so the registry's
+## reachability and world-ownership checks stay green.
 func _build_board() -> void:
 	var world := WorldDefinition.new()
 	world.id = WORLD_ID
 	world.display_name = "Test Hub"
 	world.default_spawn_id = &"spawn.test.hub"
 	world.scene = PackedScene.new()
+
+	var locked_world := WorldDefinition.new()
+	locked_world.id = LOCKED_WORLD_ID
+	locked_world.display_name = "Test Vault"
+	locked_world.default_spawn_id = &"spawn.test.vault"
+	locked_world.scene = PackedScene.new()
 
 	var start := DungeonDefinition.new()
 	start.dungeon_id = START_ID
@@ -68,14 +76,14 @@ func _build_board() -> void:
 	var locked := DungeonDefinition.new()
 	locked.dungeon_id = LOCKED_ID
 	locked.display_name = LOCKED_NAME
-	locked.world_id = WORLD_ID
+	locked.world_id = LOCKED_WORLD_ID
 	locked.entry_spawn_id = ENTRY_LOCKED
 	locked.completion_objective = &"objective.test.locked"
 	var prerequisites: Array[StringName] = [START_ID]
 	locked.prerequisites = prerequisites
 
 	var manifest := ContentManifest.new()
-	var worlds: Array[WorldDefinition] = [world]
+	var worlds: Array[WorldDefinition] = [world, locked_world]
 	var dungeons: Array[DungeonDefinition] = [start, locked]
 	manifest.worlds = worlds
 	manifest.dungeons = dungeons

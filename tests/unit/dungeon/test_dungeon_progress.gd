@@ -96,6 +96,31 @@ func test_from_save_dict_is_tolerant() -> void:
 	assert_eq(junk.first_clear_claimed_ids(), _ids([&"dungeon.02"]), "empty ids are dropped")
 
 
+func test_drop_unknown_removes_ids_the_build_does_not_know() -> void:
+	var progress := _progress()
+	progress.mark_completed(&"dungeon.ghost")
+	progress.mark_completed(&"dungeon.01")
+	progress.unlock(&"dungeon.ghost")
+	progress.mark_first_clear_claimed(&"dungeon.ghost")
+
+	var known := func(id: StringName) -> bool: return id == &"dungeon.01"
+	var dropped := progress.drop_unknown(known)
+
+	assert_eq(dropped, _ids([&"dungeon.ghost"]), "the unknown id is reported once")
+	assert_eq(progress.completed_ids(), _ids([&"dungeon.01"]), "the known completion stays")
+	assert_false(progress.is_unlocked(&"dungeon.ghost"), "the unknown unlock is gone")
+	assert_false(progress.was_first_clear_claimed(&"dungeon.ghost"), "and so is the claim")
+	assert_eq(progress.unlocked_ids(), _ids([&"dungeon.01"]), "only the seeded start remains")
+
+
+func test_drop_unknown_is_a_no_op_when_everything_is_known() -> void:
+	var progress := _progress()
+	progress.mark_completed(&"dungeon.01")
+	var known := func(id: StringName) -> bool: return id == &"dungeon.01"
+	assert_eq(progress.drop_unknown(known).size(), 0, "nothing dropped")
+	assert_true(progress.is_completed(&"dungeon.01"), "and nothing lost")
+
+
 func test_reset_to_new_game_clears_everything_but_the_seed() -> void:
 	var progress := _progress()
 	progress.mark_completed(&"dungeon.01")

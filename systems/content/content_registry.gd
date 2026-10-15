@@ -250,12 +250,21 @@ func _check_cross_references() -> void:
 ## Dungeon cross-references plus the progression graph: a dungeon that can never be
 ## unlocked (no start, no path through `first_clear_unlocks`) is a content error.
 func _check_dungeon_references() -> void:
+	var world_owners: Dictionary = {}
 	for dungeon_id: StringName in _dungeons:
 		var dungeon := _dungeons[dungeon_id] as DungeonDefinition
 		if not _worlds.has(dungeon.world_id):
 			errors.append("dungeon '%s': world '%s' is not listed in the manifest" % [
 				dungeon_id, dungeon.world_id
 			])
+		elif world_owners.has(dungeon.world_id):
+			# The travel gate resolves a world to exactly one dungeon, so a shared world
+			# would silently disable the other dungeon's gate.
+			errors.append("dungeon '%s': world '%s' is already owned by dungeon '%s'" % [
+				dungeon_id, dungeon.world_id, world_owners[dungeon.world_id]
+			])
+		else:
+			world_owners[dungeon.world_id] = dungeon_id
 		for prerequisite in dungeon.prerequisites:
 			if not _dungeons.has(prerequisite):
 				errors.append("dungeon '%s': prerequisite '%s' is not listed in the manifest" % [
