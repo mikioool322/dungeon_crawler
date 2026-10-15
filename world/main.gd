@@ -36,6 +36,12 @@ func _ready() -> void:
 	session.setup(registry, save_manager)
 	boot_result = session.load_or_new()
 
+	# Retry story rewards whose claim was never recorded (broken content on the first
+	# attempt). Idempotent: an already claimed reward is skipped.
+	var pending_rewards := session.dungeons.claim_pending_first_clear_rewards()
+	if pending_rewards > 0:
+		print("[Main] granted %d pending first-clear reward(s)" % pending_rewards)
+
 	if router == null:
 		push_error("Main: router is not assigned; nothing will be loaded")
 		return
@@ -45,7 +51,15 @@ func _ready() -> void:
 	if hud != null:
 		hud.bind(session, router, registry)
 
-	router.bootstrap(session.state.world_id, session.state.spawn_id)
+	var travel_code := router.bootstrap(session.state.world_id, session.state.spawn_id)
+	if travel_code != WorldRouter.CODE_TRAVEL_STARTED:
+		# A save that points at a world this build cannot enter must not brick the boot.
+		push_warning(
+			"Main: could not load '%s' (%s); falling back to the hub" % [
+				session.state.world_id, travel_code
+			]
+		)
+		router.bootstrap(GameSession.DEFAULT_WORLD_ID, &"")
 
 	# After the bootstrap so the boot outcome (new game / loaded / corrupt) is what the
 	# player sees first, instead of the "Entered world..." travel line.

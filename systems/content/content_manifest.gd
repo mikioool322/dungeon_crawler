@@ -27,3 +27,6 @@ extends Resource
 
 ## Worlds, indexed by `WorldDefinition.id`.
 @export var worlds: Array[WorldDefinition] = []
+
+## Dungeons, indexed by `DungeonDefinition.dungeon_id` (ADR-012).
+@export var dungeons: Array[DungeonDefinition] = []

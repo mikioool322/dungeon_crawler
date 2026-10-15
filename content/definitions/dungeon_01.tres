@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="DungeonDefinition" format=3]
+
+[ext_resource type="Script" path="res://core/dungeon/dungeon_definition.gd" id="1_rnefc"]
+
+[resource]
+script = ExtResource("1_rnefc")
+dungeon_id = &"dungeon.01"
+display_name = "Dungeon 01 - Collapsed Hall"
+world_id = &"world.dungeon.proto01"
+entry_spawn_id = &"spawn.dungeon.entry"
+first_clear_unlocks = Array[StringName]([&"dungeon.02"])
+completion_objective = &"objective.dungeon01.enemy_a"
+regular_reward_id = &"reward.regular.dungeon01"
+first_clear_reward_id = &"reward.story.dungeon01"

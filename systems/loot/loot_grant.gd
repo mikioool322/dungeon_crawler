@@ -14,9 +14,26 @@ extends RefCounted
 ##   rejected by `is_valid()` instead of silently consuming its key.
 ## - `LootService.grant()` treats the codes it returns as the only result channel;
 ##   a grant never mutates the session by itself.
+## - `scope` decides the ledger the key is checked against (ADR-012, ADR-013):
+##   `SCOPE_RUN` is repeatable and idempotent per dungeon run (a transient ledger, so
+##   ordinary rewards never accumulate in the save), `SCOPE_STORY` is one-time and
+##   idempotent per save (the persistent ledger).
+
+## Repeatable reward: claimable once per dungeon run, never persisted.
+const SCOPE_RUN: StringName = &"run"
+
+## One-time story reward: claimable once per save, persisted in the session.
+const SCOPE_STORY: StringName = &"story"
 
 ## Stable idempotency key, `<world_id>/<loot_source_id>`.
 var grant_key: StringName = &""
+
+## Ledger this key is checked against: `SCOPE_RUN` (default) or `SCOPE_STORY`.
+var scope: StringName = SCOPE_RUN
+
+## Run that produced the grant; 0 means "do not check the run identity". When set, the
+## service refuses a grant from a run that is no longer current.
+var run_id: int = 0
 
 ## Content id of the `RewardDefinition` this grant came from; informational.
 var reward_id: StringName = &""
@@ -47,11 +64,19 @@ static func key_for(world_id: StringName, loot_source_id: StringName) -> StringN
 ## The item is carried as its stable id, not as the resource reference: the service
 ## resolves it through the content registry, so a hand-authored reward and a loaded
 ## .tres go through exactly the same path.
-static func from_reward(grant_key: StringName, reward: RewardDefinition) -> LootGrant:
+##
+## `scope` defaults to `SCOPE_RUN`: scene rewards (drops, chests) are repeatable per
+## dungeon run. Story rewards must pass `SCOPE_STORY` explicitly.
+static func from_reward(
+	grant_key: StringName,
+	reward: RewardDefinition,
+	scope: StringName = SCOPE_RUN
+) -> LootGrant:
 	if reward == null:
 		return null
 	var grant := LootGrant.new()
 	grant.grant_key = grant_key
+	grant.scope = scope
 	grant.reward_id = reward.id
 	if reward.item != null:
 		grant.item_id = reward.item.id
@@ -64,6 +89,10 @@ static func from_reward(grant_key: StringName, reward: RewardDefinition) -> Loot
 func is_valid() -> bool:
 	if grant_key == &"":
 		return false
+	if scope != SCOPE_RUN and scope != SCOPE_STORY:
+		return false
+	if run_id < 0:
+		return false
 	if gold < 0:
 		return false
 	if item_id == &"":
@@ -71,7 +100,11 @@ func is_valid() -> bool:
 	return item_count >= 1
 
 
+func is_story_scope() -> bool:
+	return scope == SCOPE_STORY
+
+
 func _to_string() -> String:
-	return "LootGrant(%s, reward=%s, item=%s x%d, gold=%d)" % [
-		grant_key, reward_id, item_id, item_count, gold
+	return "LootGrant(%s, scope=%s, reward=%s, item=%s x%d, gold=%d)" % [
+		grant_key, scope, reward_id, item_id, item_count, gold
 	]

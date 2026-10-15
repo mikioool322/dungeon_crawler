@@ -57,6 +57,12 @@ const TELEGRAPH_DEAD_COLOR: Color = Color(0.35, 0.35, 0.36)
 ## node name or display name.
 @export var loot_source_id: StringName = &""
 
+## Optional completion objective this placement satisfies when it dies (ADR-012).
+## Empty means "ordinary enemy": its death never completes a dungeon. The world host
+## reads this from `HealthComponent.died`, so an objective enemy without a loot reward
+## still reports (the `defeated` signal is reward-gated).
+@export var objective_id: StringName = &""
+
 ## Current FSM state, exposed for tests and the future HUD.
 var fsm_state: EnemyFsm.State = EnemyFsm.State.IDLE
 

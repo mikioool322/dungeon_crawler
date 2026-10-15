@@ -145,6 +145,7 @@ mesh = SubResource("BoxMesh_pillar")
 [node name="Enemy" parent="." instance=ExtResource("4_enemy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, -4)
 loot_source_id = &"enemy.a"
+objective_id = &"objective.dungeon01.enemy_a"
 
 [node name="Chest" parent="." instance=ExtResource("5_chest")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -6)

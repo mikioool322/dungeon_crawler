@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="DungeonDefinition" format=3]
+
+[ext_resource type="Script" path="res://core/dungeon/dungeon_definition.gd" id="1_gcwxr"]
+
+[resource]
+script = ExtResource("1_gcwxr")
+dungeon_id = &"dungeon.02"
+display_name = "Dungeon 02 - Sunken Vault"
+world_id = &"world.dungeon.proto02"
+entry_spawn_id = &"spawn.dungeon.entry"
+prerequisites = Array[StringName]([&"dungeon.01"])
+completion_objective = &"objective.dungeon02.enemy_b"
+regular_reward_id = &"reward.regular.dungeon02"
+first_clear_reward_id = &"reward.story.dungeon02"

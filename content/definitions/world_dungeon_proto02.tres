@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="WorldDefinition" format=3]
+
+[ext_resource type="PackedScene" path="res://world/dungeons/dungeon_proto02.tscn" id="1_nj0g3"]
+[ext_resource type="Script" path="res://core/content/world_definition.gd" id="2_ip4iq"]
+
+[resource]
+script = ExtResource("2_ip4iq")
+id = &"world.dungeon.proto02"
+display_name = "Sunken Vault"
+scene = ExtResource("1_nj0g3")
+default_spawn_id = &"spawn.dungeon.entry"

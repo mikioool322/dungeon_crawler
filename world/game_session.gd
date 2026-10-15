@@ -26,6 +26,11 @@ const DEFAULT_MAX_HEALTH: float = 100.0
 var state: PlayerSessionState = PlayerSessionState.new()
 var loot: LootService = LootService.new()
 
+## Durable dungeon story progress (ADR-012) and the policy service that owns the run
+## lifecycle. Both are session-scoped: the run state never survives a restart.
+var progress: DungeonProgress = DungeonProgress.new()
+var dungeons: DungeonService = DungeonService.new()
+
 var _registry: ContentRegistry = null
 var _save_manager: SaveManager = null
 
@@ -35,6 +40,7 @@ func setup(registry: ContentRegistry, save_manager: SaveManager) -> void:
 	_registry = registry
 	_save_manager = save_manager
 	loot.setup(state, registry)
+	dungeons.setup(registry, progress, loot)
 	if not state.inventory.changed.is_connected(_on_inventory_changed):
 		state.inventory.changed.connect(_on_inventory_changed)
 	if not loot.reward_granted.is_connected(_on_reward_granted):
@@ -49,11 +55,12 @@ func save_manager() -> SaveManager:
 	return _save_manager
 
 
-## Starts a fresh run in the default world.
+## Starts a fresh run in the default world, with only the start dungeons unlocked.
 func new_game() -> void:
 	state.reset_to_new_game(DEFAULT_MAX_HEALTH)
 	state.world_id = DEFAULT_WORLD_ID
 	state.spawn_id = &""
+	progress.reset_to_new_game(_start_dungeon_ids())
 	gold_changed.emit(state.gold)
 	inventory_changed.emit()
 	location_changed.emit(state.world_id, state.spawn_id)
@@ -152,6 +159,7 @@ func to_snapshot() -> SaveSnapshot:
 		keys.append(String(key))
 	keys.sort()
 	snapshot.claimed_reward_keys = PackedStringArray(keys)
+	snapshot.dungeon_progress = progress.to_save_dict()
 	return snapshot
 
 
@@ -203,25 +211,60 @@ func apply_snapshot(snapshot: SaveSnapshot) -> PackedStringArray:
 			continue
 		state.claimed_reward_keys[reward_key] = true
 
+	_apply_progress(snapshot, warnings)
+
 	var world_id: StringName = snapshot.world_id
 	if world_id == &"" or _registry.find_world(world_id) == null:
 		if world_id != &"":
 			warnings.append("unknown world id in save: %s; using %s" % [world_id, DEFAULT_WORLD_ID])
 		world_id = DEFAULT_WORLD_ID
+	else:
+		var dungeon := _registry.find_dungeon_for_world(world_id)
+		if dungeon != null and dungeons.can_enter(dungeon.dungeon_id) != DungeonService.CODE_OK:
+			# A save that points into a dungeon the progress does not allow (a hand-edited
+			# or mismatched file) must not brick the boot: start in the hub instead.
+			warnings.append(
+				"saved world %s is a dungeon that cannot be entered (%s); using %s" % [
+					world_id, dungeons.can_enter(dungeon.dungeon_id), DEFAULT_WORLD_ID
+				]
+			)
+			world_id = DEFAULT_WORLD_ID
 	state.world_id = world_id
 	state.spawn_id = snapshot.spawn_id
 	return warnings
 
 
-## A reward key is `<world_id>/<loot_source_id>` (ADR-009); it is known when its
-## world part exists in the registry.
+## Rebuilds durable dungeon progress (ADR-012): tolerant parse, unknown ids dropped,
+## and the start dungeons are always available (a v1 migration carries no completions).
+func _apply_progress(snapshot: SaveSnapshot, warnings: PackedStringArray) -> void:
+	progress = DungeonProgress.from_save_dict(snapshot.dungeon_progress)
+	dungeons.setup(_registry, progress, loot)
+	if _registry == null:
+		return
+	var start_ids := _start_dungeon_ids()
+	progress.unlock_all(start_ids)
+	for dungeon_id in progress.completed_ids():
+		if _registry.find_dungeon(dungeon_id) == null:
+			warnings.append("dropped unknown dungeon id from save: %s" % dungeon_id)
+
+
+## Dungeons a new game starts with (definitions without prerequisites).
+func _start_dungeon_ids() -> Array[StringName]:
+	if _registry == null:
+		return []
+	return _registry.start_dungeon_ids()
+
+
+## A reward key is `<world_id>/<source>` for Sprint 01/02 drops and `<dungeon_id>/<reward_id>`
+## for dungeon rewards (ADR-013); it is known when its prefix is a listed world or dungeon.
 func _is_known_reward_key(key: StringName) -> bool:
 	if _registry == null:
 		return false
 	var parts := String(key).split("/", false)
 	if parts.is_empty():
 		return false
-	return _registry.find_world(StringName(parts[0])) != null
+	var prefix := StringName(parts[0])
+	return _registry.find_world(prefix) != null or _registry.find_dungeon(prefix) != null
 
 
 func _on_inventory_changed() -> void:

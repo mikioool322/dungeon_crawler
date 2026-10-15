@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="RewardDefinition" format=3]
+
+[ext_resource type="Resource" path="res://content/definitions/item_rusty_dagger.tres" id="1_64k14"]
+[ext_resource type="Script" path="res://core/content/reward_definition.gd" id="2_bu0tr"]
+
+[resource]
+script = ExtResource("2_bu0tr")
+id = &"reward.story.dungeon01"
+item = ExtResource("1_64k14")
+item_count = 1
+gold = 10

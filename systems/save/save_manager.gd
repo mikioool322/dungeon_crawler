@@ -21,9 +21,24 @@ extends RefCounted
 const DEFAULT_PATH: String = "user://save_slot0.json"
 
 ## Migration chain: `from_version -> Callable(Dictionary) -> Dictionary` (the next
-## version's dictionary). Empty in Sprint 02; adding an entry for a new
-## `SaveSnapshot.CURRENT_VERSION` plus a migration test is the extension point.
-const MIGRATIONS: Dictionary = {}
+## version's dictionary). Version 1 -> 2 adds the empty `dungeon_progress` section;
+## adding an entry for a new `SaveSnapshot.CURRENT_VERSION` plus a migration test is
+## the extension point.
+static var MIGRATIONS: Dictionary = {
+	1: Callable(SaveManager, "_migrate_v1_to_v2"),
+}
+
+
+## Version 1 had no dungeon progress. Never guess a completion: the player may have
+## been inside a dungeon, but a save without a recorded first clear is migrated as
+## "nothing completed", and the session seeds the start dungeons so the first dungeon
+## stays available.
+static func _migrate_v1_to_v2(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	migrated["version"] = 2
+	if not migrated.has("dungeon_progress"):
+		migrated["dungeon_progress"] = {}
+	return migrated
 
 const TMP_SUFFIX: String = ".tmp"
 const BACKUP_SUFFIX: String = ".bak"

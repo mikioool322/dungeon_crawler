@@ -14,9 +14,11 @@ extends RefCounted
 ##   the loader can refuse it before the data is used.
 ## - Content is referenced by stable ids only, never by display name or asset path.
 
-const CURRENT_VERSION: int = 1
+const CURRENT_VERSION: int = 2
 
-## Every key a usable snapshot dictionary must carry.
+## Every key a usable snapshot dictionary must carry. `dungeon_progress` is optional:
+## a version 1 shape (or a hand-written file) yields empty progress, and the session
+## then seeds the start dungeons (ADR-012 migration rule).
 const REQUIRED_KEYS: Array = [
 	"version",
 	"health",
@@ -37,8 +39,16 @@ var items: Array = []
 var world_id: StringName = &""
 var spawn_id: StringName = &""
 
-## Claimed loot keys, `"<world_id>/<loot_source_id>"` (ADR-009).
+## Claimed loot keys, `"<world_id>/<loot_source_id>"` (ADR-009). Since Sprint 03 this is
+## the *story* ledger only: run-scoped (repeatable) rewards live in the transient run
+## ledger of `LootService` (ADR-013) and never reach the save file.
 var claimed_reward_keys: PackedStringArray = PackedStringArray()
+
+## Durable dungeon progress (ADR-012), a plain JSON-compatible dictionary built by
+## `DungeonProgress.to_save_dict()`. Empty means "no recorded progress": the session
+## seeds the start dungeons. The transient run state is deliberately NOT part of the
+## snapshot.
+var dungeon_progress: Dictionary = {}
 
 
 ## Serialises to a plain JSON-compatible dictionary. Item entries that are not
@@ -52,6 +62,7 @@ func to_dict() -> Dictionary:
 		"world_id": world_id,
 		"spawn_id": spawn_id,
 		"claimed_reward_keys": claimed_reward_keys,
+		"dungeon_progress": dungeon_progress,
 	}
 
 
@@ -86,7 +97,16 @@ static func from_dict(data: Dictionary) -> SaveSnapshot:
 	snapshot.world_id = world_value
 	snapshot.spawn_id = spawn_value
 	snapshot.claimed_reward_keys = keys_value
+	snapshot.dungeon_progress = _read_progress(data.get("dungeon_progress"))
 	return snapshot
+
+
+## Durable progress is a plain dictionary; anything else (including a v1 file that has
+## no such key) yields empty progress instead of failing the load.
+static func _read_progress(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value
+	return {}
 
 
 ## Probes the schema version of a raw dictionary without validating the rest of the

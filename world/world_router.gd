@@ -26,6 +26,10 @@ const CODE_UNKNOWN_WORLD: StringName = &"unknown_world"
 const CODE_INVALID_WORLD: StringName = &"invalid_world"
 const CODE_INVALID_SPAWN: StringName = &"invalid_spawn"
 
+## The destination is a dungeon the progression does not allow yet (ADR-012). This is
+## the logic gate: a crafted portal or a UI bug cannot enter a locked dungeon.
+const CODE_BLOCKED: StringName = &"blocked"
+
 ## Node that hosts the current world; the world is its only child.
 @export var world_slot: Node3D = null
 
@@ -126,6 +130,16 @@ func _perform_travel(
 		push_error("WorldRouter: world_slot is not assigned")
 		return failure
 
+	# Progression gate: a dungeon that is locked (or already completed and not
+	# repeatable) is refused before anything is instantiated, so the current world and
+	# the current run stay untouched.
+	var destination_dungeon := _session.dungeons.dungeon_for_world(world_id)
+	if destination_dungeon != null:
+		var gate_code := _session.dungeons.can_enter(destination_dungeon.dungeon_id)
+		if gate_code != DungeonService.CODE_OK:
+			push_warning("WorldRouter: travel to '%s' refused (%s)" % [world_id, gate_code])
+			return {"code": CODE_BLOCKED}
+
 	var instance := definition.scene.instantiate()
 	if not (instance is WorldHost):
 		push_error("WorldRouter: world '%s' root is not a WorldHost" % world_id)
@@ -177,6 +191,7 @@ func _perform_travel(
 	_session.apply_to_player(player)
 	_session.note_location(world_id, resolved_spawn)
 	_connect_player_death(player)
+	_apply_run_lifecycle(world_id)
 
 	if previous_world != null and is_instance_valid(previous_world):
 		world_slot.remove_child(previous_world)
@@ -225,6 +240,19 @@ func _connect_player_death(player: PlayerController) -> void:
 	if health == null:
 		return
 	health.died.connect(_on_player_died.bind(player))
+
+
+## One run at a time (ADR-012): entering a dungeon world starts a fresh run, leaving to
+## any other world aborts an unfinished one. A completed run stays as a record until the
+## next run starts.
+func _apply_run_lifecycle(world_id: StringName) -> void:
+	if _session == null:
+		return
+	var dungeon := _session.dungeons.dungeon_for_world(world_id)
+	if dungeon == null:
+		_session.dungeons.leave_world()
+		return
+	_session.dungeons.start_run(dungeon.dungeon_id)
 
 
 ## Death outcome (ADR-007): respawn in the respawn world with full HP; inventory,

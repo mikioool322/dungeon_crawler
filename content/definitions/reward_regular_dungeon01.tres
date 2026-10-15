@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="RewardDefinition" format=3]
+
+[ext_resource type="Script" path="res://core/content/reward_definition.gd" id="1_4i8vn"]
+
+[resource]
+script = ExtResource("1_4i8vn")
+id = &"reward.regular.dungeon01"
+gold = 5

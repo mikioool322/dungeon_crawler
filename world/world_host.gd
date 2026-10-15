@@ -15,6 +15,10 @@ extends Node3D
 ## Kept as String because Node lookups require a NodePath-convertible value.
 const PLAYER_NODE_NAME: String = "Player"
 
+## Re-emitted from the hub's dungeon board so presentation can open the selection panel
+## without the world layer knowing about the HUD (ADR-012).
+signal board_requested()
+
 ## Stable world id; the router cross-checks it against the WorldDefinition.
 @export var world_id: StringName = &""
 
@@ -87,8 +91,29 @@ func _bind_interactables() -> void:
 		elif node is ChestInteractable:
 			var chest := node as ChestInteractable
 			_bind_loot(chest, chest.reward, chest.loot_source_id)
+			chest.interaction_completed.connect(_on_chest_interacted.bind(chest))
+		elif node is DungeonBoardInteractable:
+			(node as DungeonBoardInteractable).board_requested.connect(_on_board_requested)
 		elif node is SaveShrineInteractable:
 			(node as SaveShrineInteractable).set_save_provider(_save)
+
+
+## A successfully opened chest is a run fact (used by the objective/observability layer,
+## never by the reward ledger, which the loot service owns).
+func _on_chest_interacted(
+	_interactor: Node3D, result: InteractionResult, chest: ChestInteractable
+) -> void:
+	if chest == null or result == null or not result.succeeded():
+		return
+	if _session == null or chest.loot_source_id == &"":
+		return
+	var run := _session.dungeons.active_run()
+	if run != null:
+		run.mark_chest_opened(chest.loot_source_id)
+
+
+func _on_board_requested() -> void:
+	board_requested.emit()
 
 
 func _bind_loot(interactable: Interactable, reward: RewardDefinition, source: StringName) -> void:
@@ -110,15 +135,32 @@ func _bind_enemies() -> void:
 		if player != null:
 			enemy.set_target(player)
 		enemy.defeated.connect(_on_enemy_defeated)
+		# Completion objectives ride on `died` (once per life, unconditional): the
+		# reward-gated `defeated` signal would stay silent for an objective enemy that
+		# carries no loot.
+		var health := HealthComponent.find_on(enemy)
+		if health != null:
+			health.died.connect(_on_enemy_died.bind(enemy))
 
 
-## Spawns the drop for a defeated enemy exactly once per reward key (ADR-009).
+## A defeated enemy is a run fact and possibly the dungeon's completion objective.
+func _on_enemy_died(_request: DamageRequest, enemy: EnemyBrain) -> void:
+	if _session == null or enemy == null:
+		return
+	var run := _session.dungeons.active_run()
+	if run != null and enemy.loot_source_id != &"":
+		run.mark_enemy_defeated(enemy.loot_source_id)
+	if enemy.objective_id != &"":
+		_session.dungeons.note_objective(enemy.objective_id)
+
+
+## Spawns the drop for a defeated enemy exactly once per run (ADR-012/ADR-013).
 func _on_enemy_defeated(reward: RewardDefinition, loot_source_id: StringName, at: Vector3) -> void:
 	if reward == null or loot_source_id == &"":
 		return
 	var key := LootGrant.key_for(world_id, loot_source_id)
-	if _session.loot.is_claimed(key):
-		return  # claimed in an earlier visit: the drop never reappears
+	if _session.loot.is_claimed_in_run(key):
+		return  # already collected during this run
 	_spawn_pickup(reward, loot_source_id, key, at)
 
 

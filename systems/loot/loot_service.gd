@@ -30,8 +30,17 @@ const CODE_DUPLICATE := &"duplicate"
 const CODE_INVALID := &"invalid"
 const CODE_UNKNOWN_ITEM := &"unknown_item"
 
+## The grant belongs to a run that is no longer current (ADR-012 rule 10).
+const CODE_STALE_RUN := &"stale_run"
+
 var _state: PlayerSessionState = null
 var _registry: ContentRegistry = null
+
+## Transient ledger of run-scoped claims: `grant_key -> true`. Cleared on every
+## `begin_run()`/`end_run()`, so ordinary rewards repeat per run and never grow the
+## save file (ADR-013).
+var _run_claims: Dictionary = {}
+var _run_id: int = 0
 
 
 ## Binds the run state and the content registry. The state may be null; the service
@@ -41,24 +50,58 @@ func setup(state: PlayerSessionState, registry: ContentRegistry) -> void:
 	_registry = registry
 
 
-## True when `grant_key` is recorded in the session (or restored from a save).
+## True when `grant_key` is recorded in the persistent (story) ledger.
 func is_claimed(grant_key: StringName) -> bool:
 	if _state == null:
 		return false
 	return _state.is_claimed(grant_key)
 
 
-## Applies one grant atomically and returns one of the four documented codes.
+## True when `grant_key` was already claimed during the current dungeon run.
+func is_claimed_in_run(grant_key: StringName) -> bool:
+	return _run_claims.has(grant_key)
+
+
+func current_run_id() -> int:
+	return _run_id
+
+
+## Opens the transient ledger of a new dungeon run (ADR-012: ordinary rewards reset
+## per run). Called by the run owner, never by an interactable.
+func begin_run(run_id: int) -> void:
+	_run_claims.clear()
+	_run_id = maxi(0, run_id)
+
+
+## Closes the transient ledger when the player leaves the dungeon.
+func end_run() -> void:
+	_run_claims.clear()
+	_run_id = 0
+
+
+## Applies one grant atomically and returns a documented code.
 ##
-## Codes: `granted`, `duplicate` (key already claimed), `invalid` (malformed grant or
-## service without a state/bag), `unknown_item` (item id not resolvable).
+## Codes: `granted`, `duplicate` (key already claimed in the grant's ledger),
+## `invalid` (malformed grant or service without a state/bag), `unknown_item`
+## (item id not resolvable), `stale_run` (run-scoped grant from an older run).
 func grant(grant: LootGrant) -> StringName:
 	if grant == null or not grant.is_valid():
 		return CODE_INVALID
 	if _state == null:
 		return CODE_INVALID
-	if _state.is_claimed(grant.grant_key):
-		return CODE_DUPLICATE
+	if grant.run_id > 0 and grant.run_id != _run_id:
+		return CODE_STALE_RUN
+	if grant.is_story_scope():
+		if _state.is_claimed(grant.grant_key):
+			return CODE_DUPLICATE
+	else:
+		if _run_id <= 0:
+			# A repeatable reward belongs to a dungeon run (ADR-012 rule 6): granting one
+			# without an active run would create a claim that no run owns.
+			push_warning("LootService: run-scoped grant '%s' without an active run" % grant.grant_key)
+			return CODE_INVALID
+		if _run_claims.has(grant.grant_key):
+			return CODE_DUPLICATE
 
 	# --- validation ends here: resolve everything the grant needs -----------------
 	var item: ItemDefinition = null
@@ -79,7 +122,10 @@ func grant(grant: LootGrant) -> StringName:
 			return CODE_UNKNOWN_ITEM
 	if grant.gold > 0:
 		_state.gold += grant.gold
-	_state.claim(grant.grant_key)
+	if grant.is_story_scope():
+		_state.claim(grant.grant_key)
+	else:
+		_run_claims[grant.grant_key] = true
 	reward_granted.emit(grant, _state.gold)
 	return CODE_GRANTED
 

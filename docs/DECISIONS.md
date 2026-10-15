@@ -294,3 +294,53 @@ Consequences: repeatability and story progress get separate owners and separate 
 dungeon increment is a definition plus a progress record plus a gate, not a generator; procedural
 generation and the progression formula stay undecided.
 
+## ADR-013 - Reward ledgers: repeatable run rewards vs one-time story rewards
+Status: accepted (Sprint 03).
+Context: ADR-012 makes ordinary loot repeatable per run while story rewards stay one-time. The
+Sprint 02 model had a single *persistent* ledger (`PlayerSessionState.claimed_reward_keys`) keyed by
+`<world>/<source>`, so a second visit could never re-earn a chest or a drop; keying by run id in that
+same ledger would grow the save without bound.
+Decision:
+- `LootGrant.scope` selects the ledger: `SCOPE_RUN` (default, repeatable) or `SCOPE_STORY` (one-time).
+- Run-scoped claims live in a **transient** ledger owned by `LootService` (`_run_claims`), opened by
+  `begin_run(run_id)` and closed by `end_run()`. The ledger is never serialised, so ordinary rewards
+  cannot grow the save and a new run cannot see an old run's claims.
+- Story-scoped claims keep using the persistent `claimed_reward_keys`. Story keys are
+  `"<dungeon_id>/<reward_id>"`; the session accepts a prefix that is a listed world *or* dungeon.
+- `LootService.grant()` is still the only loot entry point and the only writer of bag/gold/claims.
+  Validation completes before the first mutation. New code `stale_run` refuses a run-scoped grant
+  whose optional `run_id` is not the current run; a run-scoped grant without an active run is
+  `invalid` (it would create a claim no run owns).
+- A rejected grant never consumes a key and never partially mutates.
+Consequences: double rewards stay impossible per ledger; ordinary loot repeats per run; the save
+grows only with story rewards (bounded by the dungeon count); `WorldHost` checks the run ledger for
+drops, and the old persistent-key gate no longer blocks a legal reward in a new run.
+
+## ADR-014 - Dungeon run lifecycle, travel gate and completion seam
+Status: accepted (Sprint 03).
+Context: ADR-012 needs one owner for the active run, a single gate against entering locked dungeons
+and a completion trigger that is not "some enemy died".
+Decision:
+- `DungeonService` (RefCounted, session-scoped, owned by `GameSession` next to `DungeonProgress`)
+  owns the policy: `can_enter`, `start_run`, `note_objective`, `complete_run`, `abort_run`,
+  `leave_world`, `claim_pending_first_clear_rewards`. One active run at a time; a new run aborts the
+  previous one. `DungeonRunState` is transient and never serialised.
+- `WorldRouter` applies the lifecycle after a successful swap: entering a dungeon world starts a run,
+  entering any other world calls `leave_world()` (an unfinished run becomes ABORTED, a completed one
+  stays as a record). Death respawn therefore aborts the run and cannot complete a dungeon.
+- The router also owns the **logic gate**: a destination world that maps to a dungeon whose
+  `can_enter` is not `CODE_OK` is refused with `blocked` *before* anything is instantiated, so a
+  crafted portal or a UI bug cannot enter a locked dungeon.
+- Completion is objective-driven: `DungeonDefinition.completion_objective` must be reported by the
+  world. `WorldHost` reports it from `HealthComponent.died` (once per life, unconditional) plus
+  `EnemyBrain.objective_id`, not from the reward-gated `defeated` signal, so an objective enemy
+  without loot still completes the dungeon. An ordinary enemy (empty `objective_id`) never completes.
+- Commit order: mark the objective and complete the run, record the completion, unlock the
+  first-clear targets, then grant the rewards. A failed story grant leaves "completed without the
+  claim" (the retryable direction) and `claim_pending_first_clear_rewards()` repairs it at boot.
+  The forbidden state (claim recorded without progress) cannot occur.
+Rejected: completion on any enemy death; the gate only in the UI; keying runs by a persisted counter;
+a second service for story rewards.
+Consequences: one lifecycle owner, one gate, one completion seam; a future objective type only has to
+report its own objective id; the board reads progress and never decides unlocks.
+

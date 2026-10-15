@@ -18,6 +18,7 @@ const KIND_ENEMY: String = "enemy"
 const KIND_ITEM: String = "item"
 const KIND_REWARD: String = "reward"
 const KIND_WORLD: String = "world"
+const KIND_DUNGEON: String = "dungeon"
 
 ## Members that distinguish a kind are no longer probed by name: every entry is
 ## checked against its concrete class in `_matches_kind()`.
@@ -29,6 +30,18 @@ const BUCKET_NAMES: Dictionary = {
 	KIND_ITEM: "items",
 	KIND_REWARD: "rewards",
 	KIND_WORLD: "worlds",
+	KIND_DUNGEON: "dungeons",
+}
+
+## Property that carries the stable id per kind. Dungeons use `dungeon_id` (ADR-012),
+## every other bucket uses `id`.
+const ID_PROPERTIES: Dictionary = {
+	KIND_ATTACK: "id",
+	KIND_ENEMY: "id",
+	KIND_ITEM: "id",
+	KIND_REWARD: "id",
+	KIND_WORLD: "id",
+	KIND_DUNGEON: "dungeon_id",
 }
 
 ## Every authoring problem found while building, in manifest order.
@@ -39,6 +52,7 @@ var _enemies: Dictionary = {}
 var _items: Dictionary = {}
 var _rewards: Dictionary = {}
 var _worlds: Dictionary = {}
+var _dungeons: Dictionary = {}
 
 
 ## Indexes a manifest. Never null: a null manifest builds an empty, invalid registry.
@@ -52,6 +66,7 @@ static func build(manifest: ContentManifest) -> ContentRegistry:
 	registry._collect(KIND_ITEM, manifest.items, registry._items)
 	registry._collect(KIND_REWARD, manifest.rewards, registry._rewards)
 	registry._collect(KIND_WORLD, manifest.worlds, registry._worlds)
+	registry._collect(KIND_DUNGEON, manifest.dungeons, registry._dungeons)
 	registry._check_cross_references()
 	return registry
 
@@ -93,6 +108,47 @@ func all_worlds() -> Array[WorldDefinition]:
 	return worlds
 
 
+## Returns the `DungeonDefinition` for `id`, or null.
+func find_dungeon(id: StringName) -> DungeonDefinition:
+	return _dungeons.get(id) as DungeonDefinition
+
+
+## Every dungeon that was indexed successfully, in manifest order.
+func all_dungeons() -> Array[DungeonDefinition]:
+	var dungeons: Array[DungeonDefinition] = []
+	for value: Variant in _dungeons.values():
+		dungeons.append(value as DungeonDefinition)
+	return dungeons
+
+
+## Dungeons available at the start of a new game (no prerequisites).
+func start_dungeons() -> Array[DungeonDefinition]:
+	var starts: Array[DungeonDefinition] = []
+	for dungeon in all_dungeons():
+		if dungeon.is_start_dungeon():
+			starts.append(dungeon)
+	return starts
+
+
+## Start dungeon ids, used to seed `DungeonProgress` for a new game.
+func start_dungeon_ids() -> Array[StringName]:
+	var ids: Array[StringName] = []
+	for dungeon in start_dungeons():
+		ids.append(dungeon.dungeon_id)
+	return ids
+
+
+## The dungeon that owns a world, or null when the world is not a dungeon.
+func find_dungeon_for_world(world_id: StringName) -> DungeonDefinition:
+	if world_id == &"":
+		return null
+	for value: Variant in _dungeons.values():
+		var dungeon := value as DungeonDefinition
+		if dungeon != null and dungeon.world_id == world_id:
+			return dungeon
+	return null
+
+
 func _to_string() -> String:
 	return "ContentRegistry(attacks=%d, enemies=%d, items=%d, rewards=%d, worlds=%d, errors=%d)" % [
 		_attacks.size(), _enemies.size(), _items.size(), _rewards.size(), _worlds.size(), errors.size()
@@ -117,7 +173,7 @@ func _collect(kind: String, definitions: Array, index: Dictionary) -> void:
 				label, kind, _class_name_of(definition as Resource)
 			])
 			continue
-		var id: StringName = _id_of(definition)
+		var id: StringName = _id_of(definition, ID_PROPERTIES[kind])
 		if id == &"":
 			errors.append("%s has an empty id" % label)
 			continue
@@ -141,6 +197,8 @@ static func _matches_kind(kind: String, definition: Resource) -> bool:
 			return definition is RewardDefinition
 		KIND_WORLD:
 			return definition is WorldDefinition
+		KIND_DUNGEON:
+			return definition is DungeonDefinition
 	return false
 
 
@@ -186,13 +244,73 @@ func _check_cross_references() -> void:
 				enemy_id, enemy.reward.id
 			])
 
+	_check_dungeon_references()
+
+
+## Dungeon cross-references plus the progression graph: a dungeon that can never be
+## unlocked (no start, no path through `first_clear_unlocks`) is a content error.
+func _check_dungeon_references() -> void:
+	for dungeon_id: StringName in _dungeons:
+		var dungeon := _dungeons[dungeon_id] as DungeonDefinition
+		if not _worlds.has(dungeon.world_id):
+			errors.append("dungeon '%s': world '%s' is not listed in the manifest" % [
+				dungeon_id, dungeon.world_id
+			])
+		for prerequisite in dungeon.prerequisites:
+			if not _dungeons.has(prerequisite):
+				errors.append("dungeon '%s': prerequisite '%s' is not listed in the manifest" % [
+					dungeon_id, prerequisite
+				])
+		for unlock in dungeon.first_clear_unlocks:
+			if not _dungeons.has(unlock):
+				errors.append("dungeon '%s': first-clear unlock '%s' is not listed in the manifest" % [
+					dungeon_id, unlock
+				])
+		_check_reward_reference(dungeon_id, "regular_reward_id", dungeon.regular_reward_id)
+		_check_reward_reference(dungeon_id, "first_clear_reward_id", dungeon.first_clear_reward_id)
+
+	if _dungeons.is_empty():
+		return
+
+	# Reachability from the start dungeons through the unlock graph.
+	var reachable: Dictionary = {}
+	var frontier: Array[StringName] = []
+	for dungeon in start_dungeons():
+		reachable[dungeon.dungeon_id] = true
+		frontier.append(dungeon.dungeon_id)
+	while not frontier.is_empty():
+		var current: StringName = frontier.pop_back()
+		var definition := _dungeons.get(current) as DungeonDefinition
+		if definition == null:
+			continue
+		for unlock in definition.first_clear_unlocks:
+			if unlock != &"" and not reachable.has(unlock):
+				reachable[unlock] = true
+				frontier.append(unlock)
+	if reachable.is_empty():
+		errors.append("dungeons: no start dungeon is listed; nothing can ever be unlocked")
+	for dungeon_id: StringName in _dungeons:
+		if not reachable.has(dungeon_id):
+			errors.append(
+				"dungeon '%s': cannot be unlocked - no start dungeon reaches it" % dungeon_id
+			)
+
+
+func _check_reward_reference(dungeon_id: StringName, field: String, reward_id: StringName) -> void:
+	if reward_id == &"":
+		return
+	if not _rewards.has(reward_id):
+		errors.append("dungeon '%s': %s '%s' is not listed in the manifest" % [
+			dungeon_id, field, reward_id
+		])
+
 
 # --- helpers ------------------------------------------------------------------
 
-## The stable id of a definition, or "" when it has none.
-static func _id_of(value: Variant) -> StringName:
-	if value is Object and value.get("id") != null:
-		var id: Variant = value.get("id")
+## The stable id of a definition read from `property_name`, or "" when it has none.
+static func _id_of(value: Variant, property_name: String = "id") -> StringName:
+	if value is Object and value.get(property_name) != null:
+		var id: Variant = value.get(property_name)
 		if id is StringName:
 			return id
 		if id is String:
